@@ -1,4 +1,3 @@
-#include <range/v3/all.hpp>
 // #define ASIO_NO_EXCEPTIONS
 #define ASIO_NO_DEPRECATED
 #include <asio.hpp>
@@ -8,6 +7,7 @@
 
 #include "logger.h"
 #include "server.h"
+
 
 int main()
 {
@@ -30,7 +30,6 @@ int main()
   asio::ip::tcp::endpoint ep{asio::ip::tcp::v4(), 1231};
   ar::Server server{context, ep};
   server.start();
-
 
   threads.join();
   return 0;

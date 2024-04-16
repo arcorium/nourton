@@ -7,11 +7,15 @@
 #include <asio/bind_executor.hpp>
 #include <fmt/format.h>
 
+#include <magic_enum.hpp>
+
 #include "user.h"
 #include "logger.h"
 
 namespace ar
 {
+  namespace me = magic_enum;
+
   Server::Server(asio::io_context& context, const asio::ip::address& address, asio::ip::port_type port) :
     m_context{context}, m_strand{context.get_executor()},
     m_acceptor{m_context, asio::ip::tcp::endpoint{address, port}}
@@ -28,7 +32,7 @@ namespace ar
   void Server::start()
   {
     asio::post(m_context, [this] {
-      Logger::trace("server start accept connection");
+      Logger::trace("server accepting connection");
       m_acceptor.async_accept(
         asio::bind_executor(m_strand, std::bind(&Server::connection_handler, this, std::placeholders::_1,
                                                 std::placeholders::_2)));
@@ -38,20 +42,60 @@ namespace ar
   void Server::on_message_in(Connection& conn, const Message& msg) noexcept
   {
     auto header = msg.get_header();
+    Logger::trace(fmt::format("new message from connection-{}: {}", conn.id(), me::enum_name(header->message_type)));
     switch (header->message_type)
     {
     case Message::Type::Login:
       {
+        if (conn.is_authenticated())
+        {
+          FeedbackPayload resp_payload{
+            .id = PayloadId::Authenticated, .response = false, .message = AUTHENTICATED_MESSAGE.data(),
+          };
+          conn.write(resp_payload.serialize());
+          return;
+        }
+
         auto payload = msg.body_as<LoginPayload>();
         User* user = login_message_handler(conn, payload);
+
+        // DEBUG
+        if constexpr (_DEBUG)
+        {
+          if (!user)
+            Logger::info(fmt::format("connection-{} failed to authenticate with username: {}", conn.id(),
+                                     payload.username));
+          else
+            Logger::info(fmt::format("connection-{} logged in successfully with username: {}", conn.id(),
+                                     payload.username));
+        }
+
         conn.user(user);
         FeedbackPayload resp{PayloadId::Login, user != nullptr, std::nullopt};
-        conn.write(resp.serialize()); // TODO: use asio::post instead?
+        conn.write(resp.serialize());
       }
     case Message::Type::Register:
       {
+        if (conn.is_authenticated())
+        {
+          FeedbackPayload resp_payload{
+            .id = PayloadId::Authenticated, .response = false, .message = AUTHENTICATED_MESSAGE.data(),
+          };
+          conn.write(resp_payload.serialize());
+          return;
+        }
+
         auto payload = msg.body_as<RegisterPayload>();
         bool result = register_message_handler(std::move(payload));
+        if constexpr (_DEBUG)
+        {
+          if (result)
+            Logger::info(fmt::format("connection-{} failed on registering with username: {}", conn.id(),
+                                     payload.username));
+          else
+            Logger::info(fmt::format("connection-{} registered successfully with username: {}", conn.id(),
+                                     payload.username));
+        }
         FeedbackPayload resp{PayloadId::Register, result, std::nullopt};
         conn.write(resp.serialize());
       }
@@ -61,8 +105,39 @@ namespace ar
       break;
     case Message::Type::SendFile:
       {
+        // check if authenticated
+        if (!conn.is_authenticated())
+        {
+          FeedbackPayload resp_payload{
+            .id = PayloadId::Unauthenticated, .response = false, .message = UNAUTHENTICATED_MESSAGE.data(),
+          };
+          conn.write(resp_payload.serialize());
+          return;
+        }
+
         auto payload = msg.body_as<SendFilePayload>();
+        // check if user is online
+        if (!m_user_connections.contains(header->opponent_id))
+        {
+          FeedbackPayload resp_payload{
+            .id = PayloadId::UserCheck, .response = false, .message = "user doesn't online"
+          };
+          conn.write(resp_payload.serialize());
+          return;
+        }
+
         auto& connections = m_user_connections[header->opponent_id];
+
+        if constexpr (_DEBUG)
+        {
+          // get the user opponent
+          auto user = std::ranges::find_if(m_users, [&header](const std::unique_ptr<User>& usr) {
+            return usr->id == header->opponent_id;
+          });
+
+          Logger::info(fmt::format("user-{} sending files to user-{}", conn.user()->name,
+                                   user->get()->name));
+        }
 
         auto serialized = payload.serialize(conn.user()->id);
 
@@ -76,7 +151,7 @@ namespace ar
           if (con == m_connections.end())
             continue;
 
-          asio::post(conn.socket().get_executor(), [&] { con->get()->write(serialized); });
+          con->get()->write(serialized);
         }
       }
       break;
@@ -85,10 +160,12 @@ namespace ar
 
   void Server::on_message_out(Connection& conn, std::span<const u8> bytes) noexcept
   {
+    Logger::trace(fmt::format("new message out to connection-{}", conn.id()));
   }
 
   void Server::on_connection_closed(Connection& conn) noexcept
   {
+    Logger::trace(fmt::format("trying to close connection-{}", conn.id()));
     if (conn.is_authenticated())
     {
       auto user_id = conn.user()->id;

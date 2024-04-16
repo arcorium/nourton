@@ -32,11 +32,12 @@ namespace ar
     log(HEADER_NAME, CRITICAL_HEADER, val, sl);
   }
 
-  void Logger::log(std::string_view header, std::string_view type, std::string_view val, const std::source_location &sl)
+  void Logger::log(std::string_view header, std::string_view type, std::string_view val, const std::source_location& sl)
   {
-#ifdef _DEBUG
-    fmt::println("[{}] {} | {} | '{}' => {}", std::this_thread::get_id(), std::chrono::system_clock::now(), type,
-                 sl.function_name(), val);
-#endif
+    if constexpr (_DEBUG)
+    {
+      fmt::println("[{}] {} | {} | '{}' => {}", std::this_thread::get_id(), std::chrono::system_clock::now(), type,
+                   sl.function_name(), val);
+    }
   }
 } // namespace ar

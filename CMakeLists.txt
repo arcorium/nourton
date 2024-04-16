@@ -10,12 +10,11 @@ if (POLICY CMP0141)
 endif ()
 
 set(VCPKG_TARGET_TRIPLET x64-windows-static)
-project(Skripsi)
+project(nourton)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_executable(Skripsi server/src/main.cpp)
-
+add_subdirectory(client)
 add_subdirectory(server)

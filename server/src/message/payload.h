@@ -110,7 +110,13 @@ namespace ar
   {
     Login,
     Register,
+    UserCheck,
+    Unauthenticated,
+    Authenticated,
   };
+
+  static constexpr std::string_view UNAUTHENTICATED_MESSAGE{"you need to authenticate first to do this action"};
+  static constexpr std::string_view AUTHENTICATED_MESSAGE{"you need to logout first to do this action"};
 
   struct FeedbackPayload
   {

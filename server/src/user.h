@@ -9,6 +9,7 @@ namespace ar
   struct User
   {
     using id_type = u16;
+
     id_type id;
     std::string name;
     std::string password;
