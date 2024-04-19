@@ -1,9 +1,5 @@
 find_package(asio REQUIRED)
-find_package(fmt REQUIRED)
 #find_package(range-v3 REQUIRED)
-find_package(alpaca REQUIRED)
-find_package(magic_enum REQUIRED)
-find_package(glfw3 REQUIRED)
 
 add_executable(nourton-client
 	src/main.cpp
@@ -13,11 +9,12 @@ add_executable(nourton-client
 	src/application.h
 	src/window.cpp
 	src/window.h
+	src/connection.h
+	src/connection.cpp
 )
 
 
 add_subdirectory(thirdparty/imgui)
+add_subdirectory(thirdparty/glad)
 
-target_link_libraries(nourton-client PUBLIC asio::asio fmt::fmt
-	alpaca::alpaca glfw imgui
-)
+target_link_libraries(nourton-client PUBLIC imgui nourton-common glad)

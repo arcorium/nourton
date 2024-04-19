@@ -1,90 +1,152 @@
+//
+// Created by mizzh on 4/19/2024.
+//
 #pragma once
+#include <atomic>
+
+#include <asio.hpp>
 #include <queue>
 
 #include "message/payload.h"
 #include "util/literal.h"
-#include "util/types.h"
-
-#include <asio/ip/tcp.hpp>
-
-#include "handler.h"
-// #include "user.h"
 
 namespace ar
 {
-  class Connection
+  struct User;
+  class IConnectionHandler;
+  class IMessageHandler;
+
+  class Connection : public std::enable_shared_from_this<Connection>
   {
   public:
     using id_type = u16;
+    Connection(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+               IConnectionHandler* connection_handler) noexcept;
 
-    explicit Connection(asio::ip::tcp::socket &&socket, IMessageHandler &message_handler,
-                        IConnectionHandler &connection_handler) noexcept;
+    template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+    Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept;
 
     ~Connection() noexcept;
 
-    static std::unique_ptr<Connection> make_unique(asio::ip::tcp::socket &&socket,
-                                                   IMessageHandler &message_handler,
-                                                   IConnectionHandler &connection_handler) noexcept;
+    Connection(const Connection& other) = delete;
 
+    Connection(Connection&& other) noexcept
+      : m_message_handler(other.m_message_handler),
+        m_connection_handler(other.m_connection_handler),
+        m_id(other.m_id),
+        m_user(other.m_user),
+        m_is_closing(other.m_is_closing.exchange(true)),
+        m_write_timer(std::move(other.m_write_timer)),
+        m_messages(std::move(other.m_messages)),
+        m_socket(std::move(other.m_socket))
+    {
+      other.m_id = std::numeric_limits<id_type>::max();
+      other.m_user = nullptr;
+      other.m_connection_handler = nullptr;
+      other.m_message_handler = nullptr;
+    }
+
+    Connection& operator=(const Connection& other) = delete;
+
+    Connection& operator=(Connection&& other) noexcept
+    {
+      if (this == &other)
+        return *this;
+      m_message_handler = other.m_message_handler;
+      m_connection_handler = other.m_connection_handler;
+      m_id = other.m_id;
+      m_user = other.m_user;
+      m_is_closing = other.m_is_closing.exchange(true);
+      m_write_timer = std::move(other.m_write_timer);
+      m_messages = std::move(other.m_messages);
+      m_socket = std::move(other.m_socket);
+
+
+      other.m_id = std::numeric_limits<id_type>::max();
+      other.m_user = nullptr;
+      other.m_connection_handler = nullptr;
+      other.m_message_handler = nullptr;
+      return *this;
+    }
+
+    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+                                                   IConnectionHandler* connection_handler) noexcept;
+
+    template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket, T* handler) noexcept;
+
+    // Start reading and writing handler
     void start() noexcept;
-    void read_header() noexcept;
-    void read_body() noexcept;
-    void write(const Message &msg) noexcept;
 
+    void write(Message&& msg) noexcept;
+
+    bool is_open() const noexcept;
+
+    [[nodiscard]]
     bool is_authenticated() const noexcept;
 
     template <typename Self>
-    auto &&socket(this Self &&self) noexcept;
+    auto&& socket(this Self&& self) noexcept;
 
     template <typename Self>
-    auto &&id(this Self &&self) noexcept;
+    auto&& id(this Self&& self) noexcept;
 
     template <typename Self>
-    auto &&user(this Self &&self) noexcept;
+    auto&& user(this Self&& self) noexcept;
 
-    void user(User *user) noexcept;
+    void user(User* user) noexcept;
 
   private:
-    void stop() noexcept;
     void close() noexcept;
-    void read_header_handler(const asio::error_code &ec, usize n) noexcept;
-    void read_body_handler(const asio::error_code &ec, usize n) noexcept;
-    void write_handler(const asio::error_code &ec, usize n) noexcept;
+
+    asio::awaitable<void> reader() noexcept;
+    asio::awaitable<void> writer() noexcept;
 
   private:
     inline static std::atomic<id_type> s_current_id = 1_u16;
-    // 0 is reserved for server
-    IMessageHandler &m_message_handler;
-    IConnectionHandler &m_connection_handler;
+
+    // TODO: Use concept template instead of interface
+    IMessageHandler* m_message_handler;
+    IConnectionHandler* m_connection_handler;
 
     id_type m_id;
-    std::atomic_bool m_is_writing;
+    User* m_user;
+
     std::atomic_bool m_is_closing;
 
-    Message m_input_message;
-    std::queue<std::vector<u8>> m_write_buffer;
+    asio::steady_timer m_write_timer;
+    std::queue<Message> m_messages;
     asio::ip::tcp::socket m_socket;
-
-    // correspond authenticated user, it will be null when the connection is not authenticated yet
-    User *m_user;
   };
 
+  template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+  Connection::Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept
+    : Connection{std::forward<decltype(socket)>(socket), handler, handler}
+  {
+  }
+
+  template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, T* handler) noexcept
+  {
+    return std::make_shared<Connection>(std::forward<decltype(socket)>(socket), handler, handler);
+  }
+
   template <typename Self>
-  auto &&Connection::socket(this Self &&self) noexcept
+  auto&& Connection::socket(this Self&& self) noexcept
   {
     return std::forward<Self>(self).m_socket;
   }
 
   template <typename Self>
-  auto &&Connection::id(this Self &&self) noexcept
+  auto&& Connection::id(this Self&& self) noexcept
   {
     return std::forward<Self>(self).m_id;
   }
 
   template <typename Self>
-  auto &&Connection::user(this Self &&self) noexcept
+  auto&& Connection::user(this Self&& self) noexcept
   {
     return std::forward<Self>(self).m_user;
   }
+} // ar
 
-}

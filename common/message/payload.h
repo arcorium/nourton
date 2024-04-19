@@ -9,7 +9,10 @@
 
 #include <alpaca/alpaca.h>
 
-#include "../server.h"
+#include <fmt/format.h>
+
+#include "logger.h"
+
 #include "../user.h"
 
 namespace ar
@@ -38,15 +41,15 @@ namespace ar
     {
     }
 
-    constexpr static u8 size = sizeof(Header);
-    std::array<u8, size> header; //TODO: Combine header and body, so it doesn't need to combine it later
+    constexpr static u8 header_size = sizeof(Header);
+    std::array<u8, header_size> header; //TODO: Combine header and body, so it doesn't need to combine it later
     std::vector<u8> body;
 
     [[nodiscard]]
     Header parse_header() const noexcept
     {
       Header temp{};
-      std::memcpy(&temp, header.data(), size);
+      std::memcpy(&temp, header.data(), header_size);
       return temp;
     }
 
@@ -59,8 +62,18 @@ namespace ar
     template <typename T>
     [[nodiscard]] T body_as() const noexcept
     {
-      // TODO: Implement it
-      return T{};
+      std::error_code ec;
+      auto result = alpaca::deserialize<T>(body, ec);
+      if (ec)
+      {
+        Logger::warn(fmt::format("failed to deserialize to type {}", typeid(T).name()));
+      }
+      return result;
+    }
+
+    [[nodiscard]] usize size() const noexcept
+    {
+      return header_size + body.size();
     }
   };
 
@@ -75,6 +88,24 @@ namespace ar
   {
     std::string username;
     std::string password;
+
+    Message serialize() const noexcept
+    {
+      std::vector<u8> temp{};
+      alpaca::serialize(*this, temp);
+
+      Message::Header header{
+        .body_size = temp.size(),
+        .message_type = Message::Type::Login,
+        .opponent_id = 0,
+      };
+
+      Message message{};
+      alpaca::serialize(header, message.header);
+      message.body = std::move(temp);
+
+      return message;
+    }
   };
 
   struct RegisterPayload
@@ -113,18 +144,21 @@ namespace ar
     UserCheck,
     Unauthenticated,
     Authenticated,
+    UserDetail,
+    UserOnlineList,
   };
 
   static constexpr std::string_view UNAUTHENTICATED_MESSAGE{"you need to authenticate first to do this action"};
   static constexpr std::string_view AUTHENTICATED_MESSAGE{"you need to logout first to do this action"};
 
+  template <typename T = bool>
   struct FeedbackPayload
   {
     PayloadId id;
-    bool response;
+    T response;
     std::optional<std::string> message;
 
-    [[nodiscard]] Message serialize() const noexcept
+    [[nodiscard]] Message serialize(User::id_type sender_id = 0) const noexcept
     {
       std::vector<u8> temp;
       alpaca::serialize(*this, temp);
@@ -132,7 +166,7 @@ namespace ar
       auto header = Message::Header{
         .body_size = temp.size(),
         .message_type = Message::Type::Feedback,
-        .opponent_id = 0
+        .opponent_id = sender_id
       };
 
       auto msg = Message{};

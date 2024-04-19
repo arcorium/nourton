@@ -1,3 +1,6 @@
+
+find_package(glfw3 REQUIRED)
+
 add_library(imgui STATIC
 	imconfig.h
 	imgui.h
@@ -14,7 +17,8 @@ add_library(imgui STATIC
 	backends/imgui_impl_glfw.cpp
 	backends/imgui_impl_opengl3.h
 	backends/imgui_impl_opengl3.cpp
-	backends/imgui_impl_opengl3_loader.h
 )
 
 target_include_directories(imgui PRIVATE . INTERFACE ..)
+
+target_link_libraries(imgui PUBLIC glfw)

@@ -1,53 +1,31 @@
+#define ASIO_NO_DEPRECATED
 #include <asio.hpp>
 
-#include <imgui/imgui.h>
 #include <GLFW/glfw3.h>
+#include <imgui/imgui.h>
+
+#include "application.h"
+#include "logger.h"
 
 namespace gui = ImGui;
 
 int main()
 {
-  asio::io_context context{};
-  asio::error_code ec;
-  auto address = asio::ip::make_address_v4("127.0.0.1", ec);
-  if (!ec)
-    return 0;
+	auto res = glfwInit();
+	if (!res)
+		return -1;
+	asio::thread_pool context{2};
+	ar::Window window{"nourton client"sv, 800, 800};
+	ar::Application app{context, std::move(window)};
+	if (!app.init())
+	{
+		ar::Logger::critical("failed to initialize application");
+		context.stop();
+		context.join();
+		return -1;
+	}
 
-  asio::ip::tcp::endpoint endpoint{address, 1234};
-  asio::ip::tcp::socket socket{context};
-  socket.async_connect(endpoint, )
-
-  if (!glfwInit())
-  {
-    return 0;
-  }
-
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-  auto window = glfwCreateWindow(800, 800, "mizhan", nullptr, nullptr);
-  if (!window)
-  {
-    return 0;
-  }
-
-  IMGUI_CHECKVERSION();
-  gui::CreateContext();
-  auto& io = gui::GetIO();
-  auto& style = gui::GetStyle();
-
-  gui::StyleColorsDark(&style);
-
-  asio::detail::thread_group threads{};
-  threads.create_threads([&context] { context.run(); }, 5);
-
-  while (!glfwWindowShouldClose(window))
-  {
-    glfwPollEvents();
-  }
-
-  threads.join();
-
-  return 0;
+	app.start();
+	context.join();
+	return 0;
 }

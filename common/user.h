@@ -15,4 +15,11 @@ namespace ar
     std::string password;
     std::vector<u8> public_key;
   };
+
+
+  struct UserClient
+  {
+    User::id_type id;
+    std::string name;
+  };
 }

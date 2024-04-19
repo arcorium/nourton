@@ -1,43 +1,88 @@
 //
-// Created by mizzh on 4/15/2024.
+// Created by mizzh on 4/19/2024.
 //
 
 #include "connection.h"
 
-#include <asio/placeholders.hpp>
-#include <asio/read.hpp>
-#include <asio/write.hpp>
 #include <fmt/format.h>
 
+#include <util/asio.h>
+
+#include "handler.h"
 #include "logger.h"
+
+#include "message/payload.h"
 
 namespace ar
 {
-  Connection::Connection(asio::ip::tcp::socket&& socket, IMessageHandler& message_handler,
-                         IConnectionHandler& connection_handler) noexcept :
-    m_message_handler{message_handler}, m_connection_handler{connection_handler}, m_id{s_current_id.fetch_add(1)},
-    m_is_writing{false}, m_socket{std::forward<decltype(socket)>(socket)}
+  Connection::Connection(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+                         IConnectionHandler* connection_handler) noexcept
+    : m_message_handler{message_handler}, m_connection_handler{connection_handler}, m_id{s_current_id.fetch_add(1)},
+      m_user{}, m_is_closing{false}, m_write_timer{socket.get_executor(), std::chrono::steady_clock::time_point::max()},
+      m_socket{std::forward<decltype(socket)>(socket)}
   {
   }
 
   Connection::~Connection() noexcept
   {
-    stop();
+    Logger::trace(fmt::format("Connection-{} deconstructed", m_id));
+    // close();
   }
 
-  std::unique_ptr<Connection> Connection::make_unique(asio::ip::tcp::socket&& socket,
-                                                      IMessageHandler& message_handler,
-                                                      IConnectionHandler& connection_handler) noexcept
+  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+                                                      IConnectionHandler* connection_handler) noexcept
   {
-    return std::make_unique<Connection>(std::forward<decltype(socket)>(socket), message_handler, connection_handler);
+    return std::make_shared<Connection>(std::forward<decltype(socket)>(socket), message_handler, connection_handler);
   }
 
   void Connection::start() noexcept
   {
-    asio::post(m_socket.get_executor(), [this] {
-      Logger::trace(fmt::format("connection-{} started!", m_id));
-      read_header();
-    });
+    Logger::info(fmt::format("Connection-{} started!", m_id));
+    asio::co_spawn(m_socket.get_executor(), [self=shared_from_this()] { return self->reader(); }, asio::detached);
+    asio::co_spawn(m_socket.get_executor(), [self=shared_from_this()] { return self->writer(); }, asio::detached);
+  }
+
+  void Connection::close() noexcept
+  {
+    Logger::info(fmt::format("trying to close connection-{}", m_id));
+    if (m_is_closing.load())
+      return;
+    m_is_closing.store(true);
+    m_write_timer.cancel();
+    m_socket.cancel();
+    m_socket.close();
+    Logger::info(fmt::format("Connection-{} closed!", m_id));
+  }
+
+  void Connection::write(Message&& msg) noexcept
+  {
+    if (!is_open())
+    {
+      Logger::warn(fmt::format("Could not send data to connection-{} because the socket already closed", m_id));
+      return;
+    }
+
+    Logger::trace(fmt::format("Sending message to connection-{} ...", m_id));
+    m_messages.push(std::forward<Message>(msg));
+
+    asio::error_code ec;
+    m_write_timer.cancel(ec);
+
+    if constexpr (_DEBUG)
+    {
+      if (ec)
+        Logger::warn(fmt::format("failed to cancel timer: {}", ec.message()));
+    }
+  }
+
+  bool Connection::is_open() const noexcept
+  {
+    return m_socket.is_open() && !m_is_closing.load();
+  }
+
+  bool Connection::is_authenticated() const noexcept
+  {
+    return m_user;
   }
 
   void Connection::user(User* user) noexcept
@@ -45,132 +90,103 @@ namespace ar
     m_user = user;
   }
 
-  void Connection::stop() noexcept
+  asio::awaitable<void> Connection::reader() noexcept
   {
-    m_socket.cancel();
-    m_socket.close();
-    Logger::info(fmt::format("connection-{} closed!", m_id));
-  }
-
-  void Connection::read_header() noexcept
-  {
-    Logger::trace(fmt::format("client-{}", m_id));
-    asio::async_read(m_socket, asio::buffer(m_input_message.header),
-                     asio::transfer_at_least(Message::size),
-                     std::bind(&Connection::read_header_handler, this,
-                               asio::placeholders::error,
-                               asio::placeholders::bytes_transferred));
-  }
-
-  void Connection::read_body() noexcept
-  {
-    Logger::trace(fmt::format("client-{}", m_id));
-    // message body already set by read handler
-    asio::async_read(m_socket, asio::buffer(m_input_message.body),
-                     asio::transfer_at_least(Message::size),
-                     std::bind(&Connection::read_body_handler, this,
-                               asio::placeholders::error,
-                               asio::placeholders::bytes_transferred));
-  }
-
-  void Connection::write(const Message& msg) noexcept
-  {
-    Logger::trace(fmt::format("client-{}", m_id));
-    // send header and body in separate but sequentially
-    m_write_buffer.emplace(msg.header.begin(), msg.header.end());
-    m_write_buffer.emplace(msg.body);
-
-    if (m_is_writing.load())
-      return;
-
-    m_is_writing.store(true);
-    asio::async_write(m_socket, asio::dynamic_buffer(m_input_message.body),
-                      std::bind(&Connection::write_handler, this, asio::placeholders::error,
-                                asio::placeholders::bytes_transferred));
-  }
-
-  bool Connection::is_authenticated() const noexcept
-  {
-    return m_user != nullptr;
-  }
-
-  void Connection::close() noexcept
-  {
-    if (m_is_closing.load())
-      return;
-    m_is_closing.store(true);
-    Logger::info(fmt::format("closing client-{}", m_id));
-
-    asio::post(m_socket.get_executor(), [this] {
-      m_connection_handler.on_connection_closed(*this);
-    });
-  }
-
-  void Connection::read_header_handler(const asio::error_code& ec, usize n) noexcept
-  {
-    Logger::trace(fmt::format("client-{} get data {} bytes", m_id, n));
-    if (ec)
+    Logger::trace(fmt::format("Connection-{} waiting new message", m_id));
+    Message message{};
+    while (is_open())
     {
-      if (ec == asio::error::eof)
       {
-        close();
-        return;
+        auto [ec, n] = co_await asio::async_read(m_socket, asio::buffer(message.header),
+                                                 asio::transfer_exactly(Message::header_size), ar::await_with_error());
+        if (ec)
+        {
+          if (is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("Connection-{} error on reading header: {}", m_id, ec.message()));
+          continue;
+        }
+        if (n != Message::header_size)
+        {
+          Logger::warn(fmt::format("Connection-{} is reading header with different size", m_id));
+          continue;
+        }
       }
-      Logger::warn(fmt::format("client-{} got error: {}", m_id, ec.message()));
-      read_header();
-      return;
-    }
-    // Parse header
-    auto header = m_input_message.parse_header();
-    m_input_message.body.resize(header.body_size);
-    read_body();
-  }
-
-  void Connection::read_body_handler(const asio::error_code& ec, usize n) noexcept
-  {
-    Logger::trace(fmt::format("client-{} reads {} bytes", m_id, n));
-    if (ec)
-    {
-      if (ec == asio::error::eof)
       {
-        close();
-        return;
+        // TODO: Use transfer exactly with body size?
+        auto header = message.get_header();
+        message.body.reserve(header->body_size);
+        auto [ec, n] = co_await asio::async_read(m_socket, asio::dynamic_buffer(message.body),
+                                                 ar::await_with_error());
+        // if (n != header->body_size)
+        // {
+        //   Logger::warn(fmt::format("Connection-{} is reading body with different size", m_id));
+        //   continue;
+        // }
+        if (ec)
+        {
+          if (is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("Connection-{} error on reading body: {}", m_id, ec.message()));
+          continue;
+        }
       }
-      Logger::warn(fmt::format("client-{} got error: {}", m_id, ec.message()));
-      read_header();
-      return;
+      Logger::info(fmt::format("Connection-{} got data {} bytes", m_id, message.size()));
+      if (m_message_handler)
+        m_message_handler->on_message_in(*this, message);
     }
-    // Parse body
-    m_message_handler.on_message_in(*this, m_input_message);
-
-    read_header();
+    Logger::trace(fmt::format("Connection-{} no longer reading message!", m_id));
+    close();
+    if (m_connection_handler)
+      m_connection_handler->on_connection_closed(*this);
   }
 
-  void Connection::write_handler(const asio::error_code& ec, usize n) noexcept
+  asio::awaitable<void> Connection::writer() noexcept
   {
-    Logger::trace(fmt::format("client-{} writes {} bytes", m_id, n));
-    if (ec)
+    Logger::trace(fmt::format("Connection-{} starting writer handler", m_id));
+    while (is_open())
     {
-      if (ec == asio::error::eof)
+      if (m_messages.empty())
       {
-        close();
-        return;
+        auto [ec] = co_await m_write_timer.async_wait(ar::await_with_error());
+        // NOTE: when the error is not cancel
+        if (ec != asio::error::operation_aborted)
+        {
+          Logger::warn(fmt::format("Error while waiting timer: {}", ec.message()));
+          break;
+        }
+        continue;
       }
-      Logger::warn(fmt::format("client-{} got error: {}", m_id, ec.message()));
+
+      auto& msg = m_messages.front();
+      {
+        auto [ec, n] = co_await asio::async_write(m_socket, asio::buffer(msg.header), ar::await_with_error());
+        if (ec)
+        {
+          if (is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("Connection-{} error on sending message header: {}", m_id, ec.message()));
+        }
+        if (n != Message::header_size)
+          Logger::warn(fmt::format("Connection-{} is sending message header with different size: {}", m_id, n));
+        continue;
+      }
+      {
+        auto [ec, n] = co_await asio::async_write(m_socket, asio::dynamic_buffer(msg.body), ar::await_with_error());
+        if (ec)
+        {
+          if (is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("Connection-{} error on sending message body: {}", m_id, ec.message()));
+        }
+        if (n != msg.get_header()->body_size)
+          Logger::warn(fmt::format("Connection-{} is sending message body with different size: {}", m_id, n));
+        continue;
+      }
+      m_messages.pop();
     }
-
-    auto& front = m_write_buffer.front();
-    m_message_handler.on_message_out(*this, front);
-    m_write_buffer.pop();
-
-    if (m_write_buffer.empty())
-    {
-      m_is_writing.store(false);
-      return;
-    }
-
-    asio::async_write(m_socket, asio::dynamic_buffer(m_input_message.body),
-                      std::bind(&Connection::write_handler, this, asio::placeholders::error,
-                                asio::placeholders::bytes_transferred));
+    Logger::trace(fmt::format("Connection-{} no longer sending message!", m_id));
+    // if (m_connection_handler)
+    // m_connection_handler->on_connection_closed(*this); // TODO: Change this, when the connection removed from connection_handler, the class itself could be still used on some async actions
   }
-} // namespace ar
+} // ar

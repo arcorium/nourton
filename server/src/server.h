@@ -1,11 +1,11 @@
 #pragma once
-#include <span>
 #include <map>
 #include <memory>
+#include <span>
 #include <vector>
 
-#include <asio/strand.hpp>
 #include <asio/ip/tcp.hpp>
+#include <asio/strand.hpp>
 
 #include "connection.h"
 #include "generator.h"
@@ -20,18 +20,24 @@ namespace ar
   class Server : public IMessageHandler, public IConnectionHandler
   {
   public:
-    Server(asio::io_context& context, const asio::ip::address& address, asio::ip::port_type port);
+    Server(asio::io_context& context, const asio::ip::address& address,
+           asio::ip::port_type port);
     Server(asio::io_context& context, const asio::ip::tcp::endpoint& endpoint);
 
-    void start();
+    void start() noexcept;
 
     void on_message_in(Connection& conn, const Message& msg) noexcept override;
-    void on_message_out(Connection& conn, std::span<const u8> bytes) noexcept override;
+    void on_message_out(Connection& conn,
+                        std::span<const u8> bytes) noexcept override;
     void on_connection_closed(Connection& conn) noexcept override;
 
   private:
-    void connection_handler(const asio::error_code& ec, asio::ip::tcp::socket&& socket) noexcept;
-    User* login_message_handler(Connection& conn, const LoginPayload& payload) noexcept;
+    asio::awaitable<void> connection_accepter() noexcept;
+
+    void connection_handler(const asio::error_code& ec,
+                            asio::ip::tcp::socket&& socket) noexcept;
+    User* login_message_handler(Connection& conn,
+                                const LoginPayload& payload) noexcept;
     bool register_message_handler(RegisterPayload&& payload) noexcept;
 
   private:
@@ -39,10 +45,10 @@ namespace ar
     asio::strand<asio::io_context::executor_type> m_strand;
     asio::ip::tcp::acceptor m_acceptor;
 
-    std::vector<std::unique_ptr<Connection>> m_connections; // client database
+    std::vector<std::shared_ptr<Connection>> m_connections; // client database
     // map user-connections, instead of checking user inside each connection
     std::map<u16, std::vector<u16>> m_user_connections;
     std::vector<std::unique_ptr<User>> m_users; // user database
     IdGenerator<u16> m_user_id_generator;
   };
-} // ar
+} // namespace ar

@@ -1,18 +1,44 @@
 #pragma once
 
 #include <string>
-#include <GLFW/glfw3.h>
 
-#include <util>
+#include "util/types.h"
+
+struct GLFWwindow;
 
 namespace ar
 {
-  class Window
-  {
-  public:
-    Window(std::string_view title, u32 width, u32 heigth)
+	class Window
+	{
+	public:
+		Window(std::string_view title, u32 width, u32 heigth) noexcept;
+		~Window() noexcept;
 
-  private:
-    GLFWwindow* m_window;
-  };
+		Window(const Window&) = delete;
+		Window& operator=(const Window&) = delete;
+
+		Window(Window&& other) noexcept;
+		Window& operator=(Window&& other) noexcept;
+
+		void destroy() noexcept;
+
+		void update() noexcept;
+		void render() noexcept;
+
+		[[nodiscard]] bool is_exit() const noexcept;
+		void exit() const noexcept;
+		[[nodiscard]] std::tuple<u32, u32> size() const noexcept;
+
+		template <typename Self>
+		auto&& handle(this Self&& self) noexcept;
+
+	private:
+		GLFWwindow* m_window;
+	};
+
+	template <typename Self>
+	auto&& Window::handle(this Self&& self) noexcept
+	{
+		return std::forward<Self>(self).m_window;
+	}
 }

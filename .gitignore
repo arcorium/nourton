@@ -1,3 +1,8 @@
-.idea/
 cmake-*/
 target/
+.vs/
+.vscode/
+.idea/
+out/
+
+CMakePresets.json
