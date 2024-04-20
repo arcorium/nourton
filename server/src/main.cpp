@@ -10,6 +10,8 @@
 
 int main()
 {
+	ar::Logger::set_current_thread_name("MAIN");
+
 	constexpr static usize thread_num = 5;
 	asio::thread_pool context{thread_num};
 

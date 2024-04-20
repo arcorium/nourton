@@ -62,7 +62,7 @@ namespace ar
     {
         Logger::info("Application starting!");
         // Run the client on context's thread
-        asio::co_spawn(m_context, m_client.start(), [this](std::exception_ptr a, bool res) {
+        asio::co_spawn(m_client.executor(), m_client.start(), [this](std::exception_ptr a, bool res) {
             if (!res)
             {
                 Logger::critical("failed to connect to remote");
@@ -82,9 +82,6 @@ namespace ar
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             gui::NewFrame();
-
-            // if (show_demo_window)
-            // gui::ShowDemoWindow(&show_demo_window);
 
             draw();
 
@@ -140,7 +137,6 @@ namespace ar
 
         // Draw notification overlay
     }
-
 
     void Application::login_page() noexcept
     {

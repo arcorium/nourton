@@ -63,7 +63,7 @@ namespace ar
     }
 
     Logger::trace(fmt::format("Sending message to connection-{} ...", m_id));
-    m_messages.push(std::forward<Message>(msg));
+    m_write_buffers.push(std::forward<Message>(msg));
 
     asio::error_code ec;
     m_write_timer.cancel(ec);
@@ -146,7 +146,7 @@ namespace ar
     Logger::trace(fmt::format("Connection-{} starting writer handler", m_id));
     while (is_open())
     {
-      if (m_messages.empty())
+      if (m_write_buffers.empty())
       {
         auto [ec] = co_await m_write_timer.async_wait(ar::await_with_error());
         // NOTE: when the error is not cancel
@@ -158,7 +158,7 @@ namespace ar
         continue;
       }
 
-      auto& msg = m_messages.front();
+      auto msg = std::move(m_write_buffers.front());
       {
         auto [ec, n] = co_await asio::async_write(m_socket, asio::buffer(msg.header), ar::await_with_error());
         if (ec)
@@ -183,7 +183,9 @@ namespace ar
           Logger::warn(fmt::format("Connection-{} is sending message body with different size: {}", m_id, n));
         continue;
       }
-      m_messages.pop();
+
+      Logger::info(fmt::format("success sent 1 message to connection-{}!", m_id));
+      m_write_buffers.pop();
     }
     Logger::trace(fmt::format("Connection-{} no longer sending message!", m_id));
     // if (m_connection_handler)

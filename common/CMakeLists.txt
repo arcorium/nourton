@@ -14,6 +14,8 @@ add_library(nourton-common STATIC
 	logger.cpp
 )
 
+target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)
+
 target_include_directories(nourton-common INTERFACE .)
 
 target_link_libraries(nourton-common PUBLIC fmt::fmt alpaca::alpaca magic_enum::magic_enum asio::asio)

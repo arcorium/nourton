@@ -37,7 +37,7 @@ namespace ar
         m_user(other.m_user),
         m_is_closing(other.m_is_closing.exchange(true)),
         m_write_timer(std::move(other.m_write_timer)),
-        m_messages(std::move(other.m_messages)),
+        m_write_buffers(std::move(other.m_write_buffers)),
         m_socket(std::move(other.m_socket))
     {
       other.m_id = std::numeric_limits<id_type>::max();
@@ -58,7 +58,7 @@ namespace ar
       m_user = other.m_user;
       m_is_closing = other.m_is_closing.exchange(true);
       m_write_timer = std::move(other.m_write_timer);
-      m_messages = std::move(other.m_messages);
+      m_write_buffers = std::move(other.m_write_buffers);
       m_socket = std::move(other.m_socket);
 
 
@@ -115,7 +115,7 @@ namespace ar
     std::atomic_bool m_is_closing;
 
     asio::steady_timer m_write_timer;
-    std::queue<Message> m_messages;
+    std::queue<Message> m_write_buffers;
     asio::ip::tcp::socket m_socket;
   };
 

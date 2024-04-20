@@ -23,14 +23,15 @@
 
 namespace ar
 {
-  Connection::Connection(asio::any_io_executor& executor) noexcept :
-    m_send_timer{executor, std::chrono::steady_clock::time_point::max()}, m_socket{executor}
+  Connection::Connection(asio::any_io_executor executor) noexcept
+    : m_socket{std::move(executor)},
+      m_send_timer{m_socket.get_executor(), std::chrono::steady_clock::time_point::max()}
   {
   }
 
   Connection::Connection(Connection&& other) noexcept
-    : m_send_timer{std::move(other.m_send_timer)}, m_write_buffer{std::move(other.m_write_buffer)},
-      m_socket{std::move(other.socket())}, m_user{std::move(other.m_user)}
+    : m_write_buffer{std::move(other.m_write_buffer)}, m_socket{std::move(other.socket())},
+      m_send_timer{std::move(other.m_send_timer)}, m_user{std::move(other.m_user)}
   {
   }
 
@@ -52,15 +53,7 @@ namespace ar
 
   asio::awaitable<asio::error_code> Connection::connect(const asio::ip::tcp::endpoint& endpoint) noexcept
   {
-    asio::error_code ec;
-    try
-    {
-      co_await m_socket.async_connect(endpoint, ar::await_with_error(ec));
-    }
-    catch (std::exception& exc)
-    {
-      fmt::println("{}", exc.what());
-    }
+    auto [ec] = co_await m_socket.async_connect(endpoint, ar::await_with_error());
     co_return ec;
   }
 
@@ -135,29 +128,45 @@ namespace ar
       {
         Logger::trace("connection waiting for new message to write");
         auto [ec] = co_await m_send_timer.async_wait(ar::await_with_error());
-        if (ec == asio::error::timed_out || ec == asio::error::operation_aborted)
-          continue;
-        break;
+        // WARN: in case the timer is expired
+        // if (!ec)
+        // m_send_timer.expires_from_now(std::chrono::duration<std::chrono::days>::max());
+        // cancelled
+        if (ec != asio::error::operation_aborted)
+        {
+          Logger::trace(fmt::format("Error while waiting timer: {}", ec.message()));
+          break;
+        }
+        continue;
       }
-      auto& msg = m_write_buffer.front();
+
+      auto msg = std::move(m_write_buffer.front());
       {
         Logger::trace("connection sending message...");
         auto [ec, n] = co_await asio::async_write(m_socket, asio::buffer(msg.header), ar::await_with_error());
-        if (ec || n != Message::header_size)
+        if (ec)
         {
-          Logger::warn("connection failed to send payload header");
-          break;
+          if (ar::is_connection_lost(ec))
+            break;
+          Logger::warn("failed to send message header");
         }
+        if (n != Message::header_size)
+          Logger::warn(fmt::format("message header has different size: {}", n));
+        continue;
       }
       {
         auto [ec, n] = co_await asio::async_write(m_socket, asio::buffer(msg.body), ar::await_with_error());
-        if (ec || n != msg.body.size())
+        if (ec)
         {
-          Logger::warn("connection failed to send payload body");
-          break;
+          if (ar::is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("failed to send message body: {}", ec.message()));
         }
+        if (n != msg.body.size())
+          Logger::warn(fmt::format("message body has different size: {}", n));
+        continue;
       }
-      Logger::info("connection sent message!");
+      Logger::info("success sent 1 message!");
       m_write_buffer.pop();
     }
     Logger::trace("connection no longer run write handler");

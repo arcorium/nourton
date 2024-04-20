@@ -38,6 +38,7 @@ namespace ar
                               m_acceptor.local_endpoint().port()));
 
     asio::co_spawn(m_strand, [this] { return connection_accepter(); }, asio::detached);
+
     // m_acceptor.async_accept(asio::bind_executor(
     //   m_strand, std::bind(&Server::connection_handler, this,
     //                       asio::placeholders::error, std::placeholders::_2)));
@@ -204,7 +205,13 @@ namespace ar
                     return rconn->id() == conn.lock()->id();
                   });
 
+    // TODO: Hello
+    // BUG: mzxcihasdnal
     // WARNING: This one is not needed
+    // NOTE: Hiasdhi
+    // PERF: asdasdada
+    // HACK: nzxckaubsd
+    // FIX: mzxicas
     auto count = conn.shared_from_this().use_count();
   }
 

@@ -18,7 +18,7 @@ namespace ar
   public:
     using id_type = u16;
 
-    explicit Connection(asio::any_io_executor& executor) noexcept;
+    explicit Connection(asio::any_io_executor executor) noexcept;
 
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -54,13 +54,13 @@ namespace ar
 
   private:
     std::atomic_bool m_is_closing;
-    asio::steady_timer m_send_timer;
 
     // Message m_input_message;
     std::queue<Message> m_write_buffer;
     asio::ip::tcp::socket m_socket;
 
     // correspond authenticated user, it will be null when the connection is not authenticated yet
+    asio::steady_timer m_send_timer;
     std::unique_ptr<User> m_user;
   };
 
