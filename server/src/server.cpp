@@ -18,18 +18,16 @@ namespace ar
 {
   namespace me = magic_enum;
 
-  Server::Server(asio::io_context& context, const asio::ip::address& address,
+  Server::Server(asio::any_io_executor executor, const asio::ip::address& address,
                  asio::ip::port_type port)
-    : m_context{context}, m_strand{context.get_executor()},
-      m_acceptor{m_context, asio::ip::tcp::endpoint{address, port}},
-      m_user_id_generator{1}
+    : Server{std::move(executor), asio::ip::tcp::endpoint{address, port}}
   {
   }
 
-  Server::Server(asio::io_context& context,
+  Server::Server(asio::any_io_executor executor,
                  const asio::ip::tcp::endpoint& endpoint)
-    : m_context{context}, m_strand{context.get_executor()},
-      m_acceptor{m_context, endpoint}, m_user_id_generator{1}
+    : m_executor{std::move(executor)}, m_strand{m_executor},
+      m_acceptor{m_executor, endpoint}, m_user_id_generator{1}
   {
   }
 
@@ -39,7 +37,7 @@ namespace ar
                               m_acceptor.local_endpoint().address().to_string(),
                               m_acceptor.local_endpoint().port()));
 
-    asio::co_spawn(m_context, [this] { return connection_accepter(); }, asio::detached);
+    asio::co_spawn(m_strand, [this] { return connection_accepter(); }, asio::detached);
     // m_acceptor.async_accept(asio::bind_executor(
     //   m_strand, std::bind(&Server::connection_handler, this,
     //                       asio::placeholders::error, std::placeholders::_2)));
@@ -181,8 +179,7 @@ namespace ar
     }
   }
 
-  void Server::on_message_out(Connection& conn,
-                              std::span<const u8> bytes) noexcept
+  void Server::on_message_out(Connection& conn, std::span<const u8> bytes) noexcept
   {
     Logger::trace(fmt::format("new message out to connection-{}", conn.id()));
   }

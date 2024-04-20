@@ -9,11 +9,6 @@
 
 #include <asio/ip/tcp.hpp>
 
-namespace asio
-{
-  class thread_pool;
-}
-
 namespace ar
 {
   struct User;
@@ -22,9 +17,8 @@ namespace ar
   {
   public:
     using id_type = u16;
-    using context_type = asio::thread_pool;
 
-    explicit Connection(context_type& context) noexcept;
+    explicit Connection(asio::any_io_executor& executor) noexcept;
 
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;

@@ -20,10 +20,9 @@ namespace ar
 {
     namespace gui = ImGui;
 
-    Application::Application(context_type& ctx, Window window) noexcept
-        : m_context{ctx}, m_window{std::move(window)},
-          m_client{ctx, asio::ip::make_address_v4("127.0.0.1"), 1231},
-          m_gui_state{PageState::Login}
+    Application::Application(asio::io_context& ctx, Window window) noexcept
+        : m_context{ctx}, m_gui_state{PageState::Login}, m_window{std::move(window)},
+          m_client{ctx.get_executor(), asio::ip::make_address_v4("127.0.0.1"), 1231}
     {
         m_username.reserve(255);
         m_password.reserve(255);

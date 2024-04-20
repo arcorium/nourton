@@ -23,8 +23,8 @@
 
 namespace ar
 {
-  Connection::Connection(context_type& context) noexcept :
-    m_send_timer{context, std::chrono::steady_clock::time_point::max()}, m_socket{context}
+  Connection::Connection(asio::any_io_executor& executor) noexcept :
+    m_send_timer{executor, std::chrono::steady_clock::time_point::max()}, m_socket{executor}
   {
   }
 

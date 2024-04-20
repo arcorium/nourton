@@ -20,9 +20,9 @@ namespace ar
   class Server : public IMessageHandler, public IConnectionHandler
   {
   public:
-    Server(asio::io_context& context, const asio::ip::address& address,
+    Server(asio::any_io_executor executor, const asio::ip::address& address,
            asio::ip::port_type port);
-    Server(asio::io_context& context, const asio::ip::tcp::endpoint& endpoint);
+    Server(asio::any_io_executor executor, const asio::ip::tcp::endpoint& endpoint);
 
     void start() noexcept;
 
@@ -41,8 +41,8 @@ namespace ar
     bool register_message_handler(RegisterPayload&& payload) noexcept;
 
   private:
-    asio::io_context& m_context;
-    asio::strand<asio::io_context::executor_type> m_strand;
+    asio::any_io_executor m_executor;
+    asio::strand<asio::any_io_executor> m_strand;
     asio::ip::tcp::acceptor m_acceptor;
 
     std::vector<std::shared_ptr<Connection>> m_connections; // client database

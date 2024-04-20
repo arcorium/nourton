@@ -15,10 +15,8 @@ namespace ar
   class Client
   {
   public:
-    using context_type = Connection::context_type;
-
-    Client(context_type& context, asio::ip::address address, u16 port) noexcept;
-    Client(context_type& context, asio::ip::tcp::endpoint endpoint) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::address address, u16 port) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint) noexcept;
     ~Client() noexcept;
 
     Client(const Client&) = delete;
@@ -36,13 +34,16 @@ namespace ar
     template <typename Self>
     auto&& connection(this Self&& self) noexcept;
 
+    template <typename Self>
+    auto&& executor(this Self&& self) noexcept;
+
   private:
     asio::awaitable<void> reader() noexcept;
 
     void message_handler(const Message& msg) noexcept;
 
   private:
-    context_type& m_context;
+    asio::any_io_executor m_executor;
     asio::ip::tcp::endpoint m_endpoint;
 
     Connection m_connection;
@@ -52,5 +53,11 @@ namespace ar
   auto&& Client::connection(this Self&& self) noexcept
   {
     return std::forward<Self>(self).m_connection;
+  }
+
+  template <typename Self>
+  auto&& Client::executor(this Self&& self) noexcept
+  {
+    return std::forward<Self>(self).m_executor;
   }
 }

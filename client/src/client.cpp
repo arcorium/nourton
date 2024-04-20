@@ -7,6 +7,7 @@
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/thread_pool.hpp>
+#include <utility>
 
 #include <fmt/format.h>
 
@@ -15,15 +16,15 @@
 
 namespace ar
 {
-  Client::Client(context_type& context, asio::ip::address address,
+  Client::Client(asio::any_io_executor executor, asio::ip::address address,
                  u16 port) noexcept
-    : m_context{context}, m_endpoint{address, port}, m_connection{context}
+    : Client{std::move(executor), asio::ip::tcp::endpoint{address, port}}
   {
   }
 
-  Client::Client(context_type& context, asio::ip::tcp::endpoint endpoint) noexcept
-    : m_context{context}, m_endpoint{std::move(endpoint)},
-      m_connection{context}
+  Client::Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint) noexcept
+    : m_executor{std::move(executor)}, m_endpoint{std::move(endpoint)},
+      m_connection{m_executor}
   {
   }
 
@@ -32,7 +33,7 @@ namespace ar
   }
 
   Client::Client(Client&& other) noexcept
-    : m_context{other.m_context}, m_endpoint{std::move(other.m_endpoint)},
+    : m_executor{std::move(other.m_executor)}, m_endpoint{std::move(other.m_endpoint)},
       m_connection{std::move(other.m_connection)}
   {
   }
@@ -51,7 +52,7 @@ namespace ar
     Logger::info("Application connected to endpoint");
 
     // reader coroutine
-    asio::co_spawn(m_context, [this] { return reader(); }, asio::detached);
+    asio::co_spawn(m_executor, [this] { return reader(); }, asio::detached);
     // writer coroutine
     m_connection.start();
 
@@ -64,7 +65,7 @@ namespace ar
 
   asio::awaitable<void> Client::reader() noexcept
   {
-    Logger::trace("Application start reading data from remote");
+    Logger::trace("Client start reading data from remote");
     while (m_connection.socket().is_open())
     {
       auto msg = co_await m_connection.read();
@@ -73,11 +74,11 @@ namespace ar
         Logger::warn(fmt::format("Failed to read data: {}", msg.error().message()));
         break;
       }
-      Logger::info("Application got message from remote");
+      Logger::info("Client got message from remote");
       message_handler(msg.value());
     }
 
-    asio::post(m_context, [this] {
+    asio::post(m_executor, [this] {
       disconnect();
     });
   }

@@ -14,18 +14,22 @@ int main()
 	auto res = glfwInit();
 	if (!res)
 		return -1;
-	asio::thread_pool context{2};
+
+	asio::io_context context{};
+
 	ar::Window window{"nourton client"sv, 800, 800};
 	ar::Application app{context, std::move(window)};
 	if (!app.init())
 	{
 		ar::Logger::critical("failed to initialize application");
 		context.stop();
-		context.join();
 		return -1;
 	}
 
+	// std::thread io_thread{std::bind(asio::io_context::run, &context)};
+	std::thread io_thread{&asio::io_context::run, &context};
+
 	app.start();
-	context.join();
+	io_thread.join();
 	return 0;
 }

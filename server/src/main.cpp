@@ -10,10 +10,11 @@
 
 int main()
 {
-	asio::io_context context{};
+	constexpr static usize thread_num = 5;
+	asio::thread_pool context{thread_num};
 
 	asio::ip::tcp::endpoint ep{asio::ip::tcp::v4(), 1231};
-	ar::Server server{context, ep};
+	ar::Server server{context.executor(), ep};
 	server.start();
 
 	asio::signal_set signals{context, SIGINT, SIGABRT, SIGTERM};
@@ -24,11 +25,10 @@ int main()
 			return;
 		}
 		ar::Logger::warn(fmt::format("Got signal: {}", signal));
+		ar::Logger::info("Stopping server!");
 		context.stop();
 	});
 
-	asio::detail::thread_group threads{};
-	threads.create_threads([&context] { context.run(); }, 5);
-	threads.join();
+	context.join();
 	return 0;
 }
