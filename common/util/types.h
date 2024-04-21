@@ -2,6 +2,10 @@
 
 #include <cstdint>
 
+#include <boost/multiprecision/integer.hpp>
+#include <boost/multiprecision/number.hpp>
+
+
 using u8 = uint8_t;
 using byte = u8;
 using u16 = uint16_t;
@@ -26,3 +30,9 @@ static_assert((sizeof(usize) & sizeof(isize)) == sizeof(u64));
 
 static_assert(sizeof(f32) == 4);
 static_assert(sizeof(f64) == 8);
+
+// extras
+using u128 = boost::multiprecision::uint128_t;
+using i128 = boost::multiprecision::int128_t;
+
+static_assert(sizeof(u128) & sizeof(i128));

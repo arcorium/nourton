@@ -7,6 +7,8 @@
 #include "application.h"
 #include "logger.h"
 
+#include "crypto/camellia.h"
+
 namespace gui = ImGui;
 
 int main()

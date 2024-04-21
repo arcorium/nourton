@@ -119,21 +119,21 @@ namespace ar
 
 
         // Draw notification modal
-        if (gui::Button("Hello"))
-        {
-            gui::OpenPopup("Notification");
-        }
-
-        ImGui::SetNextWindowPos(gui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        if (gui::BeginPopupModal("Notification", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            gui::Text("Hello");
-            if (gui::Button("Ok"))
-            {
-                gui::CloseCurrentPopup();
-            }
-            gui::EndPopup();
-        }
+        // if (gui::Button("Hello"))
+        // {
+        //     gui::OpenPopup("Notification");
+        // }
+        //
+        // ImGui::SetNextWindowPos(gui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        // if (gui::BeginPopupModal("Notification", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        // {
+        //     gui::Text("Hello");
+        //     if (gui::Button("Ok"))
+        //     {
+        //         gui::CloseCurrentPopup();
+        //     }
+        //     gui::EndPopup();
+        // }
 
         // Draw notification overlay
     }

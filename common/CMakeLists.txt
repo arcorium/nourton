@@ -3,8 +3,11 @@ find_package(fmt REQUIRED)
 find_package(alpaca REQUIRED)
 find_package(magic_enum REQUIRED)
 find_package(asio REQUIRED)
+find_package(Boost REQUIRED)
 
 add_library(nourton-common STATIC
+	crypto/camellia.h
+	crypto/camellia.cpp
 	message/payload.h
 	util/types.h
 	util/literal.h
@@ -12,10 +15,11 @@ add_library(nourton-common STATIC
 	util/scope_guard.h
 	logger.h
 	logger.cpp
+	util/convert.h
 )
 
 target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)
 
-target_include_directories(nourton-common INTERFACE .)
+target_include_directories(nourton-common PUBLIC .)
 
-target_link_libraries(nourton-common PUBLIC fmt::fmt alpaca::alpaca magic_enum::magic_enum asio::asio)
+target_link_libraries(nourton-common PUBLIC fmt::fmt alpaca::alpaca magic_enum::magic_enum asio::asio Boost::boost)

@@ -1,5 +1,3 @@
-find_package(asio REQUIRED)
-#find_package(range-v3 REQUIRED)
 
 add_executable(nourton-client
 	src/main.cpp
@@ -12,7 +10,6 @@ add_executable(nourton-client
 	src/connection.h
 	src/connection.cpp
 )
-
 
 add_subdirectory(thirdparty/imgui)
 add_subdirectory(thirdparty/glad)
