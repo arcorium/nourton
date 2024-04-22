@@ -11,7 +11,4 @@ add_executable(nourton-client
 	src/connection.cpp
 )
 
-add_subdirectory(thirdparty/imgui)
-add_subdirectory(thirdparty/glad)
-
 target_link_libraries(nourton-client PUBLIC imgui nourton-common glad)

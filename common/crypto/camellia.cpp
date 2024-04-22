@@ -5,6 +5,7 @@
 #include "camellia.h"
 
 #include <array>
+#include <random>
 #include <ranges>
 
 #include <fmt/std.h>
@@ -13,12 +14,20 @@
 #include <util/convert.h>
 #include <util/literal.h>
 
+#include "util/algorithm.h"
 #include "util/make.h"
 
 namespace ar
 {
   Camellia::Camellia(key_type key) noexcept
+    : key_{}, ka_{}, kw_{}, k_{}, ke_{}
   {
+    // set key
+    for (const auto& [i, byte] : key | std::views::enumerate)
+      key_[i] = byte;
+
+
+    // TODO: use key_ instead of key from parameter
     u128 kl = rawToBoost_uint128(key.data());
     u128 kr = 0; // 0, becuase the key only 128 bit
 
@@ -66,6 +75,11 @@ namespace ar
     k_[17] = (ar::rotl(kl, 111) & MASK_64BIT).convert_to<u64>();
     kw_[2] = (ar::rotl(ka_, 111) >> 64).convert_to<u64>();
     kw_[3] = (ar::rotl(ka_, 111) & MASK_64BIT).convert_to<u64>();
+  }
+
+  Camellia::Camellia() noexcept
+    : Camellia{random_bytes<KEY_BYTE>()}
+  {
   }
 
   std::expected<Camellia, std::string_view> Camellia::create(std::string_view key) noexcept
@@ -208,6 +222,11 @@ namespace ar
     if (garbage)
       result.resize(bytes.size() - garbage);
     return ar::make_expected<std::vector<u8>, std::string_view>(result);
+  }
+
+  Camellia::key_type Camellia::key() const noexcept
+  {
+    return key_type{key_};
   }
 
   u64 Camellia::F(u64 in, u64 ke) const noexcept

@@ -16,6 +16,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+add_subdirectory(thirdparty)
+
 add_subdirectory(common)
 add_subdirectory(client)
 add_subdirectory(server)

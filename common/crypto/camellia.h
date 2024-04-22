@@ -112,9 +112,14 @@ namespace ar
 	{
 	public:
 		using block_type = std::span<u8>;
-		using key_type = std::span<u8, KEY_BYTE>;
+		using key_type = std::span<const u8, KEY_BYTE>;
 
 		explicit Camellia(key_type key) noexcept;
+
+		/**
+		 * Create Camellia object instance with generated random key
+		 */
+		Camellia() noexcept;
 
 		/**
 		 * create Camellia instance using string_view as key, when the key size (bytes) is not 16 it will return error message
@@ -154,12 +159,15 @@ namespace ar
 		[[nodiscard]] std::expected<std::vector<u8>, std::string_view> decrypts(
 			std::span<u8> bytes, usize garbage = 0) const noexcept;
 
+		[[nodiscard]] key_type key() const noexcept;
+
 	private:
 		u64 F(u64 in, u64 ke) const noexcept;
 		u64 FL(u64 in, u64 subkey) const noexcept;
 		u64 FLINV(u64 in, u64 subkey) const noexcept;
 
 	private:
+		std::array<u8, KEY_BYTE> key_;
 		u128 ka_;
 		u64 kw_[4];
 		u64 k_[18];

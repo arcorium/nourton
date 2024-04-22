@@ -16,10 +16,13 @@ add_library(nourton-common STATIC
 	logger.h
 	logger.cpp
 	util/convert.h
+	crypto/dm_rsa.cpp
+	crypto/dm_rsa.h
+	util/algorithm.h
 )
 
 target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)
 
 target_include_directories(nourton-common PUBLIC .)
 
-target_link_libraries(nourton-common PUBLIC fmt::fmt alpaca::alpaca magic_enum::magic_enum asio::asio Boost::boost)
+target_link_libraries(nourton-common PUBLIC fmt::fmt alpaca::alpaca magic_enum::magic_enum asio::asio Boost::boost primesieve::primesieve)

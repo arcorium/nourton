@@ -11,18 +11,39 @@
 
 #include "util/convert.h"
 
-TEST(Hello, Basic)
-{
-  EXPECT_STREQ("Hello", "Hello");
-}
+using namespace std::literals;
 
 template <typename T, size_t N>
 static void check_array_eq(std::add_const_t<T> lhs[N], std::add_const_t<T> rhs[N]) noexcept
 {
-  for (size_t i = 0; i < 256; ++i)
+  for (size_t i = 0; i < N; ++i)
   {
     SCOPED_TRACE(i);
     ASSERT_EQ(lhs[i], rhs[i]);
+  }
+}
+
+template <typename T, typename U>
+static void check_span_eq(std::span<T> lhs, std::span<U> rhs) noexcept
+{
+  ASSERT_EQ(lhs.size(), rhs.size());
+
+  for (size_t i = 0; i < lhs.size(); ++i)
+  {
+    SCOPED_TRACE(i);
+    ASSERT_EQ(lhs[i], rhs[i]);
+  }
+}
+
+template <typename T, typename U>
+static void check_span_ne(std::span<T> lhs, std::span<U> rhs) noexcept
+{
+  ASSERT_EQ(lhs.size(), rhs.size());
+
+  for (size_t i = 0; i < lhs.size(); ++i)
+  {
+    SCOPED_TRACE(i);
+    ASSERT_NE(lhs[i], rhs[i]);
   }
 }
 
@@ -83,10 +104,13 @@ TEST(camellia, camellia_block)
 
 TEST(camellia, camellia)
 {
-  using namespace std::literals;
-
   auto a = ar::Camellia::create("mizhanaw12345jkl");
   EXPECT_EQ(a.has_value(), true);
+
+  auto keys = a->key();
+  auto orig_spans = ar::as_span("mizhanaw12345jkl"sv);
+
+  check_span_eq<const u8>(keys, orig_spans);
 
   auto& camellia = a.value();
   auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv; // 74
@@ -103,9 +127,32 @@ TEST(camellia, camellia)
   auto decipher2 = std::move(camellia.decrypts(cipher).value());
   EXPECT_EQ(decipher2.size(), 80);
 
-  for (size_t i = 0; i < text.size(); ++i)
-  {
-    SCOPED_TRACE(i);
-    ASSERT_EQ(decipher[i], text_span[i]);
-  }
+  check_span_eq<u8>(decipher, text_span);
+}
+
+TEST(camellia, random_generated_key)
+{
+  auto a = ar::Camellia{};
+
+  std::array<u8, 16> zeroeth_key{};
+  zeroeth_key.fill(0);
+
+  check_span_ne<const u8, u8>(a.key(), zeroeth_key);
+
+  auto& camellia = a;
+  auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv; // 74
+  auto text_span = ar::as_span(text);
+  EXPECT_EQ(text_span.size(), text.size());
+
+  auto [garbage, cipher] = camellia.encrypts(text_span);
+  EXPECT_EQ(garbage, 6);
+  EXPECT_EQ(cipher.size(), 80);
+
+  auto decipher = std::move(camellia.decrypts(cipher, garbage).value());
+  EXPECT_EQ(decipher.size(), 74);
+
+  auto decipher2 = std::move(camellia.decrypts(cipher).value());
+  EXPECT_EQ(decipher2.size(), 80);
+
+  check_span_eq<u8>(decipher, text_span);
 }
