@@ -117,13 +117,13 @@ TEST(algorithm, is_prime)
 
 TEST(algorithm, generate_prime_at_nth)
 {
-    auto result_1 = ar::generate_prime_nth<u64>(124);
+    auto result_1 = ar::nth_prime<u64>(124);
     EXPECT_TRUE(ar::is_prime(result_1));
 
-    auto result_2 = ar::generate_prime_nth<u128>(256);
+    auto result_2 = ar::nth_prime<u128>(256);
     EXPECT_TRUE(ar::is_prime(result_2));
 
-    auto result_3 = ar::generate_prime_nth<u256>(1024);
+    auto result_3 = ar::nth_prime<u256>(1024);
     EXPECT_TRUE(ar::is_prime(result_3));
 }
 

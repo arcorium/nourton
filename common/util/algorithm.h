@@ -113,11 +113,11 @@ namespace ar
   template <typename T>
   static constexpr bool is_prime(T n)
   {
-    // NOTE: Naive implementation
     if (n <= 1) return false; // 0 and 1 is not prime
     if (n % 2 == 0) return n == 2; // all numbers divided by 2 except 2 is not prime
     if (n % 3 == 0) return n == 3; // all numbers divided by 3 except 3 is not prime
 
+    // PERF: add stepping
     T mid = n / 2;
     for (T i = 5; i < mid; ++i)
     {
@@ -128,7 +128,7 @@ namespace ar
   }
 
   template <typename T>
-  static constexpr T generate_prime_nth(usize nth) noexcept
+  static constexpr T nth_prime(usize nth) noexcept
   {
     // NOTE: Naive implementation
     if constexpr (USE_NAIVE_PRIME)
@@ -153,8 +153,10 @@ namespace ar
 #define USE_NAIVE_POWM 1
 #endif
 
+
   // a ^ b % m
   // ((a % m) ( b % m )) % m
+  // @copyright https://www.geeksforgeeks.org/modular-exponentiation-power-in-modular-arithmetic/
   template <typename T>
   static constexpr T mod_exponential(T a, T b, T m) noexcept
   {
@@ -162,7 +164,7 @@ namespace ar
     {
       T res = 1; // Initialize result
 
-      a %= m; // Update x if it is more than or
+      a = a % m; // Update x if it is more than or
 
       if (a == 0)
         return 0; // In case x is divisible by p;

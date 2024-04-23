@@ -45,6 +45,7 @@ namespace ar
   void Logger::critical(std::string_view val, std::source_location sl) noexcept
   {
     log(Level::Critical, CRITICAL_HEADER, val, sl);
+    std::abort();
   }
 
   void Logger::set_minimum_level(Level level) noexcept

@@ -84,6 +84,12 @@ namespace ar
 		return std::span<T, sizeof(U) / sizeof(T)>{reinterpret_cast<T*>(&data_), sizeof(U) / sizeof(T)};
 	}
 
+	template <typename T>
+	constexpr std::span<u8> as_bytes(std::span<T> val, usize end_offset = 0) noexcept
+	{
+		return std::span<u8>{(u8*)val.data(), val.size_bytes() - end_offset};
+	}
+
 	constexpr std::span<u8> as_span(std::string_view val) noexcept
 	{
 		return std::span<u8>{(u8*)val.data(), val.size()};
