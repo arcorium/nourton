@@ -182,4 +182,14 @@ namespace ar
     }
     return boost::multiprecision::powm<T>(a, b, m);
   }
+
+  template <typename T>
+  static constexpr T phi(T n) noexcept
+  {
+    T result = 1;
+    for (T i = 2; i < n; ++i)
+      if (gcd(i, n) == 1)
+        ++result;
+    return result;
+  }
 }
