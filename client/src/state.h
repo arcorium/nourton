@@ -1,6 +1,8 @@
 #pragma once
 
-#include <util/enum.h>
+#include <util/types.h>
+
+#include <map>
 
 namespace ar
 {
@@ -9,38 +11,48 @@ namespace ar
     Login,
     Register,
     Dashboard,
-    SendFile,
-    End
+    SendFile
+  };
+
+  enum class OverlayState : u8
+  {
+    None,
+    Loading,
+    ClientDisconnected,
+    EmptyField,
   };
 
   class State
   {
   public:
-    State(PageState state) noexcept
-      : m_state{state}, m_show_page{}
-    {
-      m_show_page[to_underlying(state)] = true;
-    }
+    explicit State(PageState state, OverlayState overlay_state = OverlayState::None) noexcept;
 
-    void active(PageState state) noexcept
-    {
-      m_show_page[to_underlying(m_state)] = false;
-      m_show_page[to_underlying(state)] = true;
-      m_state = state;
-    }
+    void active_page(PageState state) noexcept;
 
-    PageState state() const noexcept
-    {
-      return m_state;
-    }
+    void active_overlay(OverlayState state) noexcept;
 
-    bool* page_show(PageState state) noexcept
-    {
-      return &m_show_page[to_underlying(state)];
-    }
+    [[nodiscard]] PageState page_state() const noexcept;
+
+    [[nodiscard]] OverlayState overlay_state() const noexcept;
+
+    [[nodiscard]] static std::string_view overlay_state_id(OverlayState state) noexcept;
+
+    /**
+     * get current overlay state and set it into OverlayState::None afterward indirectly
+     * @return current active overlay state
+     */
+    [[nodiscard]] OverlayState toggle_overlay_state() noexcept;
+
+    bool* page_show(PageState state) noexcept;
+
+    [[nodiscard]] bool is_loading() const noexcept;
 
   private:
-    PageState m_state;
-    bool m_show_page[static_cast<int>(PageState::SendFile) + 1];
+    static std::map<OverlayState, std::string_view> OVERLAY_NAME_IDS;
+    bool is_loading_;
+
+    PageState page_state_;
+    OverlayState overlay_state_;
+    bool show_pages_[static_cast<int>(PageState::SendFile) + 1];
   };
 }

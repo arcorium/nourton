@@ -1,5 +1,6 @@
 #pragma once
 #include "client.h"
+#include "handler.h"
 #include "window.h"
 
 #include "state.h"
@@ -11,7 +12,7 @@ namespace asio
 
 namespace ar
 {
-  class Application
+  class Application : public IEventHandler
   {
   public:
     Application(asio::io_context& ctx, Window window) noexcept;
@@ -19,10 +20,16 @@ namespace ar
 
     bool init() noexcept;
 
+    void update() noexcept;
     void start() noexcept;
+    void render() noexcept;
+
+    bool is_running() const noexcept;
+    void exit() noexcept;
 
   private:
     void draw() noexcept;
+    void draw_overlay() noexcept;
 
     void login_page() noexcept;
     void register_page() noexcept;
@@ -32,15 +39,20 @@ namespace ar
     void register_button_handler() noexcept;
     void login_button_handler() noexcept;
 
+  public:
+    void on_feedback_response(const FeedbackPayload& payload) noexcept override;
+    void on_file_receive() noexcept override;
+
   private:
-    asio::io_context& m_context;
-    std::atomic_bool m_is_ready;
-    State m_gui_state;
+    bool is_running_;
 
-    std::string m_username;
-    std::string m_password;
+    asio::io_context& context_;
+    State gui_state_;
 
-    Window m_window;
-    Client m_client;
+    std::string username_;
+    std::string password_;
+
+    Window window_;
+    Client client_;
   };
 }

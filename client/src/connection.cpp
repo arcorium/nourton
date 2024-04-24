@@ -85,7 +85,7 @@ namespace ar
         co_return std::unexpected(ec);
     }
 
-    auto header = message.get_header();
+    auto header = message.as_header();
     message.body.reserve(header->body_size);
     auto [ec, n] = co_await asio::async_read(m_socket, asio::dynamic_buffer(message.body, header->body_size),
                                              ar::await_with_error());
@@ -149,10 +149,13 @@ namespace ar
           if (ar::is_connection_lost(ec))
             break;
           Logger::warn("failed to send message header");
+          continue;
         }
         if (n != Message::header_size)
+        {
           Logger::warn(fmt::format("message header has different size: {}", n));
-        continue;
+          continue;
+        }
       }
       {
         auto [ec, n] = co_await asio::async_write(m_socket, asio::buffer(msg.body), ar::await_with_error());
@@ -163,8 +166,10 @@ namespace ar
           Logger::warn(fmt::format("failed to send message body: {}", ec.message()));
         }
         if (n != msg.body.size())
+        {
           Logger::warn(fmt::format("message body has different size: {}", n));
-        continue;
+          continue;
+        }
       }
       Logger::info("success sent 1 message!");
       m_write_buffer.pop();

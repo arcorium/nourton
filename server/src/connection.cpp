@@ -29,6 +29,42 @@ namespace ar
     // close();
   }
 
+  Connection::Connection(Connection&& other) noexcept: m_message_handler(other.m_message_handler),
+                                                       m_connection_handler(other.m_connection_handler),
+                                                       m_id(other.m_id),
+                                                       m_user(other.m_user),
+                                                       m_is_closing(other.m_is_closing.exchange(true)),
+                                                       m_write_timer(std::move(other.m_write_timer)),
+                                                       m_write_buffers(std::move(other.m_write_buffers)),
+                                                       m_socket(std::move(other.m_socket))
+  {
+    other.m_id = std::numeric_limits<id_type>::max();
+    other.m_user = nullptr;
+    other.m_connection_handler = nullptr;
+    other.m_message_handler = nullptr;
+  }
+
+  Connection& Connection::operator=(Connection&& other) noexcept
+  {
+    if (this == &other)
+      return *this;
+    m_message_handler = other.m_message_handler;
+    m_connection_handler = other.m_connection_handler;
+    m_id = other.m_id;
+    m_user = other.m_user;
+    m_is_closing = other.m_is_closing.exchange(true);
+    m_write_timer = std::move(other.m_write_timer);
+    m_write_buffers = std::move(other.m_write_buffers);
+    m_socket = std::move(other.m_socket);
+
+
+    other.m_id = std::numeric_limits<id_type>::max();
+    other.m_user = nullptr;
+    other.m_connection_handler = nullptr;
+    other.m_message_handler = nullptr;
+    return *this;
+  }
+
   std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
                                                       IConnectionHandler* connection_handler) noexcept
   {
@@ -114,9 +150,10 @@ namespace ar
       }
       {
         // TODO: Use transfer exactly with body size?
-        auto header = message.get_header();
+        auto header = message.as_header();
         message.body.reserve(header->body_size);
-        auto [ec, n] = co_await asio::async_read(m_socket, asio::dynamic_buffer(message.body),
+        auto [ec, n] = co_await asio::async_read(m_socket, asio::buffer(message.body),
+                                                 asio::transfer_exactly(header->body_size),
                                                  ar::await_with_error());
         // if (n != header->body_size)
         // {
@@ -166,10 +203,13 @@ namespace ar
           if (is_connection_lost(ec))
             break;
           Logger::warn(fmt::format("Connection-{} error on sending message header: {}", m_id, ec.message()));
+          continue;
         }
         if (n != Message::header_size)
+        {
           Logger::warn(fmt::format("Connection-{} is sending message header with different size: {}", m_id, n));
-        continue;
+          continue;
+        }
       }
       {
         auto [ec, n] = co_await asio::async_write(m_socket, asio::dynamic_buffer(msg.body), ar::await_with_error());
@@ -178,10 +218,13 @@ namespace ar
           if (is_connection_lost(ec))
             break;
           Logger::warn(fmt::format("Connection-{} error on sending message body: {}", m_id, ec.message()));
+          continue;
         }
-        if (n != msg.get_header()->body_size)
+        if (n != msg.as_header()->body_size)
+        {
           Logger::warn(fmt::format("Connection-{} is sending message body with different size: {}", m_id, n));
-        continue;
+          continue;
+        }
       }
 
       Logger::info(fmt::format("success sent 1 message to connection-{}!", m_id));

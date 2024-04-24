@@ -25,6 +25,9 @@ namespace ar
 		void update() noexcept;
 		void render() noexcept;
 
+		void show() const noexcept;
+		void hide() const noexcept;
+
 		[[nodiscard]] bool is_exit() const noexcept;
 		void exit() const noexcept;
 		[[nodiscard]] std::tuple<u32, u32> size() const noexcept;
@@ -33,12 +36,12 @@ namespace ar
 		auto&& handle(this Self&& self) noexcept;
 
 	private:
-		GLFWwindow* m_window;
+		GLFWwindow* window_;
 	};
 
 	template <typename Self>
 	auto&& Window::handle(this Self&& self) noexcept
 	{
-		return std::forward<Self>(self).m_window;
+		return std::forward<Self>(self).window_;
 	}
 }

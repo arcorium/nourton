@@ -7,8 +7,6 @@
 #include "application.h"
 #include "logger.h"
 
-#include "crypto/camellia.h"
-
 namespace gui = ImGui;
 
 int main()
@@ -34,11 +32,10 @@ int main()
 
 	std::thread io_thread{
 		[&] {
-			ar::Logger::set_current_thread_name("WORKER");
+			ar::Logger::set_current_thread_name("IO");
 			context.run();
 		}
 	};
-	// std::thread io_thread{&asio::io_context::run, &context};
 
 	app.start();
 	io_thread.join();

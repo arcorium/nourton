@@ -42,6 +42,11 @@ namespace ar
     log(Level::Warn, WARN_HEADER, val, sl);
   }
 
+  void Logger::error(std::string_view val, std::source_location sl) noexcept
+  {
+    log(Level::Error, ERROR_HEADER, val, sl);
+  }
+
   void Logger::critical(std::string_view val, std::source_location sl) noexcept
   {
     log(Level::Critical, CRITICAL_HEADER, val, sl);

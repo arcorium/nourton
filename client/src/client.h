@@ -12,11 +12,13 @@
 
 namespace ar
 {
+  class IEventHandler;
+
   class Client
   {
   public:
-    Client(asio::any_io_executor executor, asio::ip::address address, u16 port) noexcept;
-    Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::address address, u16 port, IEventHandler* event_handler) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint, IEventHandler* event_handler) noexcept;
     ~Client() noexcept;
 
     Client(const Client&) = delete;
@@ -43,21 +45,22 @@ namespace ar
     void message_handler(const Message& msg) noexcept;
 
   private:
-    asio::any_io_executor m_executor;
-    asio::ip::tcp::endpoint m_endpoint;
+    IEventHandler* event_handler_;
+    asio::any_io_executor executor_;
+    asio::ip::tcp::endpoint endpoint_;
 
-    Connection m_connection;
+    Connection connection_;
   };
 
   template <typename Self>
   auto&& Client::connection(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_connection;
+    return std::forward<Self>(self).connection_;
   }
 
   template <typename Self>
   auto&& Client::executor(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_executor;
+    return std::forward<Self>(self).executor_;
   }
 }

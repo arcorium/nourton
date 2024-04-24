@@ -46,7 +46,7 @@ namespace ar
 
   void Server::on_message_in(Connection& conn, const Message& msg) noexcept
   {
-    auto header = msg.get_header();
+    auto header = msg.as_header();
     Logger::trace(fmt::format("new message from connection-{}: {}", conn.id(),
                               me::enum_name(header->message_type)));
     switch (header->message_type)

@@ -30,44 +30,11 @@ namespace ar
 
     Connection(const Connection& other) = delete;
 
-    Connection(Connection&& other) noexcept
-      : m_message_handler(other.m_message_handler),
-        m_connection_handler(other.m_connection_handler),
-        m_id(other.m_id),
-        m_user(other.m_user),
-        m_is_closing(other.m_is_closing.exchange(true)),
-        m_write_timer(std::move(other.m_write_timer)),
-        m_write_buffers(std::move(other.m_write_buffers)),
-        m_socket(std::move(other.m_socket))
-    {
-      other.m_id = std::numeric_limits<id_type>::max();
-      other.m_user = nullptr;
-      other.m_connection_handler = nullptr;
-      other.m_message_handler = nullptr;
-    }
+    Connection(Connection&& other) noexcept;
 
     Connection& operator=(const Connection& other) = delete;
 
-    Connection& operator=(Connection&& other) noexcept
-    {
-      if (this == &other)
-        return *this;
-      m_message_handler = other.m_message_handler;
-      m_connection_handler = other.m_connection_handler;
-      m_id = other.m_id;
-      m_user = other.m_user;
-      m_is_closing = other.m_is_closing.exchange(true);
-      m_write_timer = std::move(other.m_write_timer);
-      m_write_buffers = std::move(other.m_write_buffers);
-      m_socket = std::move(other.m_socket);
-
-
-      other.m_id = std::numeric_limits<id_type>::max();
-      other.m_user = nullptr;
-      other.m_connection_handler = nullptr;
-      other.m_message_handler = nullptr;
-      return *this;
-    }
+    Connection& operator=(Connection&& other) noexcept;
 
     static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
                                                    IConnectionHandler* connection_handler) noexcept;

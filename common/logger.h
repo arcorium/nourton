@@ -18,12 +18,19 @@ namespace ar
       Trace,
       Info,
       Warn,
+      Error,
       Critical
     };
 
     static void trace(std::string_view val, std::source_location sl = std::source_location::current()) noexcept;
     static void info(std::string_view val, std::source_location sl = std::source_location::current()) noexcept;
     static void warn(std::string_view val, std::source_location sl = std::source_location::current()) noexcept;
+
+    /**
+     * log as error without exit app
+     * @param val string
+     */
+    static void error(std::string_view val, std::source_location sl = std::source_location::current()) noexcept;
     static void critical(std::string_view val, std::source_location sl = std::source_location::current()) noexcept;
 
     static void set_minimum_level(Level level) noexcept;
@@ -42,6 +49,7 @@ namespace ar
     static constexpr std::string_view TRACE_HEADER{"TRACE"sv};
     static constexpr std::string_view INFO_HEADER{"INFO"sv};
     static constexpr std::string_view WARN_HEADER{"WARN"sv};
+    static constexpr std::string_view ERROR_HEADER{"ERROR"sv};
     static constexpr std::string_view CRITICAL_HEADER{"CRITICAL"sv};
   };
 }

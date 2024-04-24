@@ -54,11 +54,12 @@ namespace ar
     }
 
 
-    [[nodiscard]] Header const* get_header() const noexcept
+    [[nodiscard]] Header const* as_header() const noexcept
     {
       return reinterpret_cast<Header const*>(header.data());
     }
 
+    // TODO: change return into std::expected instead
     template <typename T>
     [[nodiscard]] T body_as() const noexcept
     {
@@ -151,11 +152,10 @@ namespace ar
   static constexpr std::string_view UNAUTHENTICATED_MESSAGE{"you need to authenticate first to do this action"};
   static constexpr std::string_view AUTHENTICATED_MESSAGE{"you need to logout first to do this action"};
 
-  template <typename T = bool>
   struct FeedbackPayload
   {
     PayloadId id;
-    T response;
+    bool response;
     std::optional<std::string> message;
 
     [[nodiscard]] Message serialize(User::id_type sender_id = 0) const noexcept

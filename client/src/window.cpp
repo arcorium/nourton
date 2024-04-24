@@ -8,7 +8,8 @@ namespace ar
 	{
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-		m_window = glfwCreateWindow(static_cast<int>(width), static_cast<int>(heigth), title.data(), nullptr, nullptr);
+		glfwWindowHint(GLFW_VISIBLE, 0);
+		window_ = glfwCreateWindow(static_cast<int>(width), static_cast<int>(heigth), title.data(), nullptr, nullptr);
 	}
 
 	Window::~Window() noexcept
@@ -17,9 +18,9 @@ namespace ar
 	}
 
 	Window::Window(Window&& other) noexcept
-		: m_window(other.m_window)
+		: window_(other.window_)
 	{
-		other.m_window = nullptr;
+		other.window_ = nullptr;
 	}
 
 	Window& Window::operator=(Window&& other) noexcept
@@ -27,17 +28,17 @@ namespace ar
 		if (&other == this)
 			return *this;
 
-		m_window = other.m_window;
-		other.m_window = nullptr;
+		window_ = other.window_;
+		other.window_ = nullptr;
 		return *this;
 	}
 
 	void Window::destroy() noexcept
 	{
-		if (m_window)
+		if (window_)
 		{
-			glfwDestroyWindow(m_window);
-			m_window = nullptr;
+			glfwDestroyWindow(window_);
+			window_ = nullptr;
 		}
 	}
 
@@ -48,23 +49,33 @@ namespace ar
 
 	void Window::render() noexcept
 	{
-		glfwSwapBuffers(m_window);
+		glfwSwapBuffers(window_);
+	}
+
+	void Window::show() const noexcept
+	{
+		glfwShowWindow(window_);
+	}
+
+	void Window::hide() const noexcept
+	{
+		glfwHideWindow(window_);
 	}
 
 	bool Window::is_exit() const noexcept
 	{
-		return glfwWindowShouldClose(m_window);
+		return glfwWindowShouldClose(window_);
 	}
 
 	void Window::exit() const noexcept
 	{
-		glfwSetWindowShouldClose(m_window, true);
+		glfwSetWindowShouldClose(window_, true);
 	}
 
 	std::tuple<u32, u32> Window::size() const noexcept
 	{
 		int width, height;
-		glfwGetWindowSize(m_window, &width, &height);
+		glfwGetWindowSize(window_, &width, &height);
 		return std::make_tuple(static_cast<u32>(width), static_cast<u32>(height));
 	}
 }

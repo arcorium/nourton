@@ -146,7 +146,7 @@ namespace ar
   }
 
   DMRSA::DMRSA(prime_type p1, prime_type p2, prime_type q1, prime_type q2, prime_type e1, prime_type e2) noexcept
-    : p1_{p1}, q1_{q1}, p2_{p2}, q2_{q2}, n1_{p1 * p2}, n2_{q1 * q2}, e1_{e1}, e2_{e2}
+    : p1_{p1}, p2_{p2}, q1_{q1}, q2_{q2}, n1_{p1 * p2}, n2_{q1 * q2}, e1_{e1}, e2_{e2}
   {
     prime_type phi1 = (p1_ - 1) * (p2_ - 1);
     prime_type phi2 = (q1_ - 1) * (q2_ - 1);

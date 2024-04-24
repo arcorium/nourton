@@ -13,12 +13,14 @@ add_library(nourton-common STATIC
 	util/literal.h
 	util/make.h
 	util/scope_guard.h
+	util/convert.h
+	util/enum.h
+	util/algorithm.h
+	util/asio.h
 	logger.h
 	logger.cpp
-	util/convert.h
 	crypto/dm_rsa.cpp
 	crypto/dm_rsa.h
-	util/algorithm.h
 )
 
 target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)
