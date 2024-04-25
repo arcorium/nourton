@@ -10,6 +10,9 @@ namespace ar
     std::make_pair(OverlayState::Loading, "Loading"),
     std::make_pair(OverlayState::ClientDisconnected, "Client Disconnected"),
     std::make_pair(OverlayState::EmptyField, "Missing Field"),
+    std::make_pair(OverlayState::PasswordDifferent, "Password doesn't match"),
+    std::make_pair(OverlayState::LoginFailed, "Login Failed"),
+    std::make_pair(OverlayState::RegisterFailed, "Register Failed"),
   };
 
   State::State(PageState state, OverlayState overlay_state) noexcept

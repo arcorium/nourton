@@ -39,6 +39,7 @@ namespace ar
     void register_button_handler() noexcept;
     void login_button_handler() noexcept;
 
+    // Callback, called by io thread
   public:
     void on_feedback_response(const FeedbackPayload& payload) noexcept override;
     void on_file_receive() noexcept override;
@@ -49,8 +50,10 @@ namespace ar
     asio::io_context& context_;
     State gui_state_;
 
+    // UI data
     std::string username_;
     std::string password_;
+    std::string confirm_password_;
 
     Window window_;
     Client client_;

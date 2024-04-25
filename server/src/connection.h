@@ -73,17 +73,17 @@ namespace ar
     inline static std::atomic<id_type> s_current_id = 1_u16;
 
     // TODO: Use concept template instead of interface
-    IMessageHandler* m_message_handler;
-    IConnectionHandler* m_connection_handler;
+    IMessageHandler* message_handler_;
+    IConnectionHandler* connection_handler_;
 
-    id_type m_id;
-    User* m_user;
+    id_type id_;
+    User* user_;
 
-    std::atomic_bool m_is_closing;
+    std::atomic_bool is_closing_;
 
-    asio::steady_timer m_write_timer;
-    std::queue<Message> m_write_buffers;
-    asio::ip::tcp::socket m_socket;
+    asio::steady_timer write_timer_;
+    std::queue<Message> write_message_queue_; // WARN: need mutex?
+    asio::ip::tcp::socket socket_;
   };
 
   template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
@@ -101,19 +101,19 @@ namespace ar
   template <typename Self>
   auto&& Connection::socket(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_socket;
+    return std::forward<Self>(self).socket_;
   }
 
   template <typename Self>
   auto&& Connection::id(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_id;
+    return std::forward<Self>(self).id_;
   }
 
   template <typename Self>
   auto&& Connection::user(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_user;
+    return std::forward<Self>(self).user_;
   }
 } // ar
 

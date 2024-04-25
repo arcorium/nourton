@@ -53,26 +53,26 @@ namespace ar
     asio::awaitable<void> write_handler() noexcept;
 
   private:
-    std::atomic_bool m_is_closing;
+    std::atomic_bool is_closing_;
 
     // Message m_input_message;
-    std::queue<Message> m_write_buffer;
-    asio::ip::tcp::socket m_socket;
+    std::queue<Message> write_message_queue_;
+    asio::ip::tcp::socket socket_;
 
     // correspond authenticated user, it will be null when the connection is not authenticated yet
-    asio::steady_timer m_send_timer;
-    std::unique_ptr<User> m_user;
+    asio::steady_timer write_timer_;
+    std::unique_ptr<User> user_;
   };
 
   template <typename Self>
   auto&& Connection::socket(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_socket;
+    return std::forward<Self>(self).socket_;
   }
 
   template <typename Self>
   auto&& Connection::user(this Self&& self) noexcept
   {
-    return std::forward<Self>(self).m_user;
+    return std::forward<Self>(self).user_;
   }
 }

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "../util/make.h"
 #include "../util/types.h"
 
@@ -15,12 +16,9 @@
 
 #include "../user.h"
 
-namespace ar
-{
-  struct Message
-  {
-    enum class Type : u8
-    {
+namespace ar {
+  struct Message {
+    enum class Type : u8 {
       Login,
       Register,
       GetUserOnline,
@@ -29,69 +27,68 @@ namespace ar
       Feedback
     };
 
-    struct Header
-    {
+    struct Header {
       u64 body_size;
       Type message_type;
-      u16 opponent_id;
+      u16 opponent_id; // 0 = server
     };
 
+    constexpr static u8 header_size = sizeof(Header);
+
+    // TODO: Remove default constructor to force header initialization
     Message() :
-      header{}, body{}
-    {
+      header{}, body{} {
     }
 
-    constexpr static u8 header_size = sizeof(Header);
-    std::array<u8, header_size> header; //TODO: Combine header and body, so it doesn't need to combine it later
+    explicit Message(const Header &header_) noexcept
+      : header{}, body{} {
+      std::memcpy(header.data(), &header_, header_size);
+    }
+
+
+    // WARN: header should not be serialized using alpaca, use the underlying memory layout of Header struct instead
+    std::array<u8, header_size> header;
     std::vector<u8> body;
 
     [[nodiscard]]
-    Header parse_header() const noexcept
-    {
+    Header parse_header() const noexcept {
       Header temp{};
       std::memcpy(&temp, header.data(), header_size);
       return temp;
     }
 
 
-    [[nodiscard]] Header const* as_header() const noexcept
-    {
-      return reinterpret_cast<Header const*>(header.data());
+    [[nodiscard]] Header const *as_header() const noexcept {
+      return reinterpret_cast<Header const *>(header.data());
     }
 
     // TODO: change return into std::expected instead
-    template <typename T>
-    [[nodiscard]] T body_as() const noexcept
-    {
+    template<typename T>
+    [[nodiscard]] T body_as() const noexcept {
       std::error_code ec;
       auto result = alpaca::deserialize<T>(body, ec);
-      if (ec)
-      {
+      if (ec) {
         Logger::warn(fmt::format("failed to deserialize to type {}", typeid(T).name()));
       }
       return result;
     }
 
-    [[nodiscard]] usize size() const noexcept
-    {
+    [[nodiscard]] usize size() const noexcept {
       return header_size + body.size();
     }
   };
 
-  struct UserDetailPayload
-  {
+  struct UserDetailPayload {
     User::id_type id;
     std::string username;
     std::vector<u8> public_key;
   };
 
-  struct LoginPayload
-  {
+  struct LoginPayload {
     std::string username;
     std::string password;
 
-    Message serialize() const noexcept
-    {
+    [[nodiscard]] Message serialize() const noexcept {
       std::vector<u8> temp{};
       alpaca::serialize(*this, temp);
 
@@ -102,26 +99,43 @@ namespace ar
       };
 
       Message message{};
-      alpaca::serialize(header, message.header);
+      // alpaca::serialize(header, message.header);
+      std::memcpy(message.header.data(), &header, Message::header_size);
       message.body = std::move(temp);
 
       return message;
     }
   };
 
-  struct RegisterPayload
-  {
+  struct RegisterPayload {
     std::string username;
     std::string password;
+
+    [[nodiscard]] Message serialize() const noexcept {
+      std::vector<u8> temp{};
+      alpaca::serialize(*this, temp);
+
+      Message::Header header{
+        .body_size = temp.size(),
+        .message_type = Message::Type::Register,
+        .opponent_id = 0,
+      };
+
+      Message message{};
+      // alpaca::serialize(header, message.header);
+      std::memcpy(message.header.data(), &header, Message::header_size);
+      message.body = std::move(temp);
+
+      return message;
+    }
   };
 
-  struct SendFilePayload
-  {
-    std::vector<u8> symmetric_key;
+  struct SendFilePayload {
+    u64 file_size;
+    std::vector<u8> symmetric_key; // encrypted
     std::vector<u8> files;
 
-    [[nodiscard]] Message serialize(User::id_type id) noexcept
-    {
+    [[nodiscard]] Message serialize(User::id_type id) const noexcept {
       std::vector<u8> temp;
       alpaca::serialize(*this, temp);
 
@@ -131,15 +145,15 @@ namespace ar
         .opponent_id = id,
       };
       Message msg{};
-      alpaca::serialize(header, msg.header);
+      // alpaca::serialize(header, msg.header);
+      std::memcpy(msg.header.data(), &header, Message::header_size);
       msg.body = std::move(temp);
 
       return msg;
     }
   };
 
-  enum class PayloadId : u8
-  {
+  enum class PayloadId : u8 {
     Login,
     Register,
     UserCheck,
@@ -152,14 +166,12 @@ namespace ar
   static constexpr std::string_view UNAUTHENTICATED_MESSAGE{"you need to authenticate first to do this action"};
   static constexpr std::string_view AUTHENTICATED_MESSAGE{"you need to logout first to do this action"};
 
-  struct FeedbackPayload
-  {
+  struct FeedbackPayload {
     PayloadId id;
     bool response;
     std::optional<std::string> message;
 
-    [[nodiscard]] Message serialize(User::id_type sender_id = 0) const noexcept
-    {
+    [[nodiscard]] Message serialize(User::id_type sender_id = 0) const noexcept {
       std::vector<u8> temp;
       alpaca::serialize(*this, temp);
 
@@ -170,7 +182,8 @@ namespace ar
       };
 
       auto msg = Message{};
-      alpaca::serialize(header, msg.header);
+      // alpaca::serialize(header, msg.header);
+      std::memcpy(msg.header.data(), &header, Message::header_size);
       msg.body = std::move(temp);
       return msg;
     }

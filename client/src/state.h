@@ -20,6 +20,9 @@ namespace ar
     Loading,
     ClientDisconnected,
     EmptyField,
+    PasswordDifferent,
+    LoginFailed,
+    RegisterFailed,
   };
 
   class State

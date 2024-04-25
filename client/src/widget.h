@@ -2,26 +2,23 @@
 
 #include <string_view>
 
-#include "imgui/imgui_internal.h"
+#include "imgui_internal.h"
 
-namespace ar
-{
-  struct InputTextCallback_UserData
-  {
-    std::string& Str;
+namespace ar {
+  struct InputTextCallback_UserData {
+    std::string &Str;
     ImGuiInputTextCallback ChainCallback;
-    void* ChainCallbackUserData;
+    void *ChainCallbackUserData;
   };
 
-  static void loading_widget(const char* label, const float indicator_radius,
-                             const ImVec4& main_color, const ImVec4& backdrop_color,
-                             const int circle_count, const float speed) noexcept
-  {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
+  static void loading_widget(const char *label, const float indicator_radius,
+                             const ImVec4 &main_color, const ImVec4 &backdrop_color,
+                             const int circle_count, const float speed) noexcept {
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
       return;
 
-    ImGuiContext& g = *ImGui::GetCurrentContext();
+    ImGuiContext &g = *ImGui::GetCurrentContext();
     const ImGuiID id = window->GetID(label);
 
     const ImVec2 pos = window->DC.CursorPos;
@@ -29,14 +26,12 @@ namespace ar
     const float updated_indicator_radius = indicator_radius - 4.0f * circle_radius;
     const ImRect bb(pos, ImVec2(pos.x + indicator_radius * 2.0f, pos.y + indicator_radius * 2.0f));
     ImGui::ItemSize(bb);
-    if (!ImGui::ItemAdd(bb, id))
-    {
+    if (!ImGui::ItemAdd(bb, id)) {
       return;
     }
     const float t = g.Time;
     const auto degree_offset = 2.0f * IM_PI / circle_count;
-    for (int i = 0; i < circle_count; ++i)
-    {
+    for (int i = 0; i < circle_count; ++i) {
       const auto x = updated_indicator_radius * std::sin(degree_offset * i);
       const auto y = updated_indicator_radius * std::cos(degree_offset * i);
       const auto growth = std::max(0.0f, std::sin(t * speed - i * degree_offset));
@@ -51,9 +46,8 @@ namespace ar
     }
   }
 
-  inline int input_text_callback(ImGuiInputTextCallbackData* callback) noexcept
-  {
-    auto data = static_cast<InputTextCallback_UserData*>(callback->UserData);
+  inline int input_text_callback(ImGuiInputTextCallbackData *callback) noexcept {
+    auto data = static_cast<InputTextCallback_UserData *>(callback->UserData);
     data->Str.resize(callback->BufTextLen);
     callback->Buf = data->Str.data();
 
@@ -63,9 +57,8 @@ namespace ar
     return data->ChainCallback(callback);
   }
 
-  static bool input_text(const char* label, std::string& buffer, ImGuiInputFlags flags = 0,
-                         ImGuiInputTextCallback callback = nullptr, void* user_data = nullptr) noexcept
-  {
+  static bool input_text(const char *label, std::string &buffer, ImGuiInputFlags flags = 0,
+                         ImGuiInputTextCallback callback = nullptr, void *user_data = nullptr) noexcept {
     flags |= ImGuiInputTextFlags_CallbackResize;
     InputTextCallback_UserData cb_user_data{
       .Str = buffer,
@@ -75,5 +68,32 @@ namespace ar
 
     return ImGui::InputText(label, buffer.data(), buffer.capacity() + 1, flags, input_text_callback,
                             &cb_user_data);
+  }
+
+  static void notification_overlay(std::string_view id, std::string_view button_text, std::string_view line_1,
+                                   std::string_view line_2 = {}) noexcept {
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal(id.data(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::Text(line_1.data());
+      ImGui::Text(line_2.data());
+      if (ImGui::Button(button_text.data())) {
+        ImGui::CloseCurrentPopup();
+      }
+
+      ImGui::EndPopup();
+    }
+  }
+
+  static void loading_overlay(bool is_close) noexcept {
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal(State::overlay_state_id(OverlayState::Loading).data(), nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration |
+                               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove)) {
+      loading_widget("Loading...", 72.f, ImVec4{0.537f, 0.341f, 0.882f, 1.f},
+                     ImVec4{0.38f, 0.24f, 0.64f, 1.f}, 14, 4.0f);
+      if (is_close)
+        ImGui::CloseCurrentPopup();
+      ImGui::EndPopup();
+    }
   }
 }

@@ -9,15 +9,20 @@
 
 #include "util/types.h"
 
-namespace ar
-{
-  static constexpr std::string_view get_function_name(std::string_view func_) noexcept
-  {
+#ifdef _DEBUG
+#define AR_DEBUG 1
+#else
+#define AR_DEBUG 0
+#endif
+
+namespace ar {
+  static constexpr std::string_view get_function_name(std::string_view func_) noexcept {
     auto idx = func_.find("__cdecl");
     if (idx == std::string_view::npos)
       return "error"sv;
 
     usize len = func_.size() - (idx + 8);
+
 
     auto idx2 = func_.find_last_of('(');
     if (idx2 == std::string_view::npos)
@@ -27,52 +32,42 @@ namespace ar
     return func_.substr(idx + 8, len);
   }
 
-  void Logger::trace(std::string_view val, std::source_location sl) noexcept
-  {
+  void Logger::trace(std::string_view val, std::source_location sl) noexcept {
     log(Level::Trace, TRACE_HEADER, val, sl);
   }
 
-  void Logger::info(std::string_view val, std::source_location sl) noexcept
-  {
+  void Logger::info(std::string_view val, std::source_location sl) noexcept {
     log(Level::Info, INFO_HEADER, val, sl);
   }
 
-  void Logger::warn(std::string_view val, std::source_location sl) noexcept
-  {
+  void Logger::warn(std::string_view val, std::source_location sl) noexcept {
     log(Level::Warn, WARN_HEADER, val, sl);
   }
 
-  void Logger::error(std::string_view val, std::source_location sl) noexcept
-  {
+  void Logger::error(std::string_view val, std::source_location sl) noexcept {
     log(Level::Error, ERROR_HEADER, val, sl);
   }
 
-  void Logger::critical(std::string_view val, std::source_location sl) noexcept
-  {
+  void Logger::critical(std::string_view val, std::source_location sl) noexcept {
     log(Level::Critical, CRITICAL_HEADER, val, sl);
     std::abort();
   }
 
-  void Logger::set_minimum_level(Level level) noexcept
-  {
+  void Logger::set_minimum_level(Level level) noexcept {
     s_level = level;
   }
 
-  void Logger::set_thread_name(std::string name, thread_id id) noexcept
-  {
+  void Logger::set_thread_name(std::string name, thread_id id) noexcept {
     s_thread_names[id] = std::move(name);
   }
 
-  void Logger::set_current_thread_name(std::string name) noexcept
-  {
+  void Logger::set_current_thread_name(std::string name) noexcept {
     set_thread_name(std::move(name), std::this_thread::get_id());
   }
 
   void Logger::log(Level level, std::string_view type,
-                   std::string_view val, const std::source_location& sl)
-  {
-    if constexpr (_DEBUG)
-    {
+                   std::string_view val, const std::source_location &sl) {
+    if constexpr (AR_DEBUG) {
       if (level < s_level)
         return;
 

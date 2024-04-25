@@ -1,12 +1,12 @@
 #define ASIO_NO_DEPRECATED
 #include <asio.hpp>
 
-#include <iostream>
 #include <fmt/format.h>
 
 #include "logger.h"
 #include "server.h"
 
+#include "util/asio.h"
 
 int main()
 {
