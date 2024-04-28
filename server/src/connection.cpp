@@ -4,6 +4,8 @@
 
 #include "connection.h"
 
+#include <asio/awaitable.hpp>
+
 #include <fmt/format.h>
 
 #include <util/asio.h>
@@ -13,17 +15,20 @@
 
 #include "message/payload.h"
 
-namespace ar {
+namespace ar
+{
   Connection::Connection(asio::ip::tcp::socket &&socket, IMessageHandler *message_handler,
                          IConnectionHandler *connection_handler) noexcept
     : message_handler_{message_handler}, connection_handler_{connection_handler}, id_{s_current_id.fetch_add(1)},
       user_{}, is_closing_{false},
     // is_closing is false at the constructor due to the socket should be already connected
       write_timer_{socket.get_executor(), std::chrono::steady_clock::time_point::max()},
-      socket_{std::forward<decltype(socket)>(socket)} {
+      socket_{std::forward<decltype(socket)>(socket)}
+  {
   }
 
-  Connection::~Connection() noexcept {
+  Connection::~Connection() noexcept
+  {
     Logger::trace(fmt::format("Connection-{} deconstructed", id_));
     // close();
   }
@@ -32,14 +37,16 @@ namespace ar {
     : message_handler_(other.message_handler_), connection_handler_(other.connection_handler_),
       id_(other.id_), user_(other.user_), is_closing_(other.is_closing_.exchange(true)),
       write_timer_(std::move(other.write_timer_)), write_message_queue_(std::move(other.write_message_queue_)),
-      socket_(std::move(other.socket_)) {
+      socket_(std::move(other.socket_))
+  {
     other.id_ = std::numeric_limits<id_type>::max();
     other.user_ = nullptr;
     other.connection_handler_ = nullptr;
     other.message_handler_ = nullptr;
   }
 
-  Connection &Connection::operator=(Connection &&other) noexcept {
+  Connection &Connection::operator=(Connection &&other) noexcept
+  {
     if (this == &other)
       return *this;
     message_handler_ = other.message_handler_;
@@ -60,17 +67,20 @@ namespace ar {
   }
 
   std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket &&socket, IMessageHandler *message_handler,
-                                                      IConnectionHandler *connection_handler) noexcept {
+                                                      IConnectionHandler *connection_handler) noexcept
+  {
     return std::make_shared<Connection>(std::forward<decltype(socket)>(socket), message_handler, connection_handler);
   }
 
-  void Connection::start() noexcept {
+  void Connection::start() noexcept
+  {
     Logger::info(fmt::format("Connection-{} started!", id_));
     asio::co_spawn(socket_.get_executor(), [self = shared_from_this()] { return self->reader(); }, asio::detached);
     asio::co_spawn(socket_.get_executor(), [self = shared_from_this()] { return self->writer(); }, asio::detached);
   }
 
-  void Connection::close() noexcept {
+  void Connection::close() noexcept
+  {
     Logger::info(fmt::format("trying to close connection-{}", id_));
     if (is_closing_.load())
       return;
@@ -81,7 +91,8 @@ namespace ar {
     Logger::info(fmt::format("Connection-{} closed!", id_));
   }
 
-  void Connection::write(Message &&msg) noexcept {
+  void Connection::write(Message &&msg) noexcept
+  {
     if (!is_open()) {
       Logger::warn(fmt::format("Could not send data to connection-{} because the socket already closed", id_));
       return;
@@ -99,19 +110,23 @@ namespace ar {
     }
   }
 
-  bool Connection::is_open() const noexcept {
+  bool Connection::is_open() const noexcept
+  {
     return socket_.is_open() && !is_closing_.load();
   }
 
-  bool Connection::is_authenticated() const noexcept {
+  bool Connection::is_authenticated() const noexcept
+  {
     return user_;
   }
 
-  void Connection::user(User *user) noexcept {
+  void Connection::user(User *user) noexcept
+  {
     user_ = user;
   }
 
-  asio::awaitable<void> Connection::reader() noexcept {
+  asio::awaitable<void> Connection::reader() noexcept
+  {
     Logger::trace(fmt::format("Connection-{} waiting new message", id_));
     Message message{};
     while (is_open()) {
@@ -156,7 +171,8 @@ namespace ar {
       connection_handler_->on_connection_closed(*this);
   }
 
-  asio::awaitable<void> Connection::writer() noexcept {
+  asio::awaitable<void> Connection::writer() noexcept
+  {
     Logger::trace(fmt::format("Connection-{} starting writer handler", id_));
     while (is_open()) {
       if (write_message_queue_.empty()) {

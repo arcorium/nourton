@@ -13,11 +13,12 @@ namespace ar
     std::make_pair(OverlayState::PasswordDifferent, "Password doesn't match"),
     std::make_pair(OverlayState::LoginFailed, "Login Failed"),
     std::make_pair(OverlayState::RegisterFailed, "Register Failed"),
+    std::make_pair(OverlayState::SendFile, "Send File##2"),
   };
 
   State::State(PageState state, OverlayState overlay_state) noexcept
     : is_loading_{overlay_state == OverlayState::Loading}, page_state_{state},
-      overlay_state_{overlay_state}, show_pages_{}
+      overlay_state_{overlay_state}, last_overlay_state_{OverlayState::None}, show_pages_{}
   {
     show_pages_[to_underlying(state)] = true;
   }
@@ -35,6 +36,7 @@ namespace ar
       is_loading_ = true;
     else
       is_loading_ = false;
+    last_overlay_state_ = state;
     overlay_state_ = state;
   }
 
@@ -45,7 +47,7 @@ namespace ar
 
   OverlayState State::overlay_state() const noexcept
   {
-    return overlay_state_;
+    return last_overlay_state_;
   }
 
   std::string_view State::overlay_state_id(OverlayState state) noexcept

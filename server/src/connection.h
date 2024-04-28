@@ -72,7 +72,6 @@ namespace ar
   private:
     inline static std::atomic<id_type> s_current_id = 1_u16;
 
-    // TODO: Use concept template instead of interface
     IMessageHandler* message_handler_;
     IConnectionHandler* connection_handler_;
 
@@ -88,9 +87,7 @@ namespace ar
 
   template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
   Connection::Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept
-    : Connection{std::forward<decltype(socket)>(socket), handler, handler}
-  {
-  }
+    : Connection{std::forward<decltype(socket)>(socket), handler, handler} {}
 
   template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
   std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, T* handler) noexcept

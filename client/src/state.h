@@ -11,7 +11,6 @@ namespace ar
     Login,
     Register,
     Dashboard,
-    SendFile
   };
 
   enum class OverlayState : u8
@@ -23,6 +22,7 @@ namespace ar
     PasswordDifferent,
     LoginFailed,
     RegisterFailed,
+    SendFile,
   };
 
   class State
@@ -56,6 +56,7 @@ namespace ar
 
     PageState page_state_;
     OverlayState overlay_state_;
-    bool show_pages_[static_cast<int>(PageState::SendFile) + 1];
+    OverlayState last_overlay_state_;
+    bool show_pages_[static_cast<int>(PageState::Dashboard) + 1];
   };
 }

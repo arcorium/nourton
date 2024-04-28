@@ -1,4 +1,3 @@
-
 add_executable(nourton-client
 	src/main.cpp
 	src/client.cpp
@@ -13,6 +12,9 @@ add_executable(nourton-client
 	src/handler.h
 	src/widget.h
 	src/application.cpp
+	src/resource.cpp
+	src/resource.h
+	src/file.h
 )
 
-target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font)
+target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font tinyfd)

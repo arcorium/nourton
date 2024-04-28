@@ -1,9 +1,11 @@
 #pragma once
 #include "client.h"
 #include "handler.h"
+#include "resource.h"
 #include "window.h"
 
 #include "state.h"
+#include "file.h"
 
 namespace asio
 {
@@ -34,10 +36,15 @@ namespace ar
     void login_page() noexcept;
     void register_page() noexcept;
     void dashboard_page() noexcept;
-    void send_file_page() noexcept;
+    void send_file_modal() noexcept;
 
     void register_button_handler() noexcept;
     void login_button_handler() noexcept;
+    void send_file_button_handler() noexcept;
+
+    void send_file() noexcept;
+
+    void on_file_drop(std::string_view paths) noexcept;
 
     // Callback, called by io thread
   public:
@@ -49,13 +56,22 @@ namespace ar
 
     asio::io_context& context_;
     State gui_state_;
+    Window window_;
 
     // UI data
     std::string username_;
     std::string password_;
     std::string confirm_password_;
 
-    Window window_;
+    ResourceManager resource_manager_;
+
+    std::vector<FileProperty> files_;
+    std::vector<User> users_;
+
+    // Send File data
+    std::string dropped_file_path_;
+    int selected_user_;
+
     Client client_;
   };
 }

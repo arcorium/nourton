@@ -9,6 +9,7 @@ namespace ar
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 		glfwWindowHint(GLFW_VISIBLE, 0);
+		// glfwWindowHint(GLFW_SAMPLES, 8);
 		window_ = glfwCreateWindow(static_cast<int>(width), static_cast<int>(heigth), title.data(), nullptr, nullptr);
 	}
 

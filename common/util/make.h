@@ -7,6 +7,6 @@ namespace ar
   std::expected<T, E> make_expected(
     Arg&&... args)
   {
-    return std::expected<T, E>{std::in_place, args...};
+    return std::expected<T, E>{std::in_place, std::forward<Arg>(args)...};
   }
 }
