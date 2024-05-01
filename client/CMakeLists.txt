@@ -15,6 +15,7 @@ add_executable(nourton-client
 	src/resource.cpp
 	src/resource.h
 	src/file.h
+	src/util/safe.h
 )
 
 target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font tinyfd)

@@ -14,27 +14,20 @@
 #include "logger.h"
 #include "handler.h"
 
-
 namespace ar
 {
   Client::Client(asio::any_io_executor executor, asio::ip::address address, u16 port,
-                 IEventHandler *event_handler) noexcept
-    : Client{std::move(executor), asio::ip::tcp::endpoint{address, port}, event_handler}
-  {
-  }
+                 IEventHandler* event_handler) noexcept
+    : Client{std::move(executor), asio::ip::tcp::endpoint{address, port}, event_handler} {}
 
   Client::Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint,
-                 IEventHandler *event_handler) noexcept
+                 IEventHandler* event_handler) noexcept
     : event_handler_{event_handler}, executor_{std::move(executor)},
-      endpoint_{std::move(endpoint)}, connection_{executor_}
-  {
-  }
+      endpoint_{std::move(endpoint)}, connection_{executor_} {}
 
-  Client::~Client() noexcept
-  {
-  }
+  Client::~Client() noexcept {}
 
-  Client::Client(Client &&other) noexcept
+  Client::Client(Client&& other) noexcept
     : event_handler_{other.event_handler_}, executor_{std::move(other.executor_)},
       endpoint_{std::move(other.endpoint_)},
       connection_{std::move(other.connection_)}
@@ -64,10 +57,14 @@ namespace ar
   }
 
   void Client::disconnect() noexcept
-  { connection_.close(); }
+  {
+    connection_.close();
+  }
 
   bool Client::is_connected() const noexcept
-  { return connection_.is_open(); }
+  {
+    return connection_.is_open();
+  }
 
   asio::awaitable<void> Client::reader() noexcept
   {
@@ -89,22 +86,39 @@ namespace ar
     });
   }
 
-  void Client::message_handler(const Message &msg) noexcept
+  void Client::message_handler(const Message& msg) noexcept
   {
     Logger::trace("Client handle incoming message");
 
     auto header = msg.as_header();
 
-    // TODO: Split message that can be received by client and server so it doesn't cluttered
     switch (header->message_type)
     {
-      // TODO: Implement this
-      case Message::Type::SendFile:
-        break;
-      case Message::Type::Feedback:
-        if (event_handler_)
-          event_handler_->on_feedback_response(msg.body_as<FeedbackPayload>());
-        break;
+    // TODO: Implement this
+    case Message::Type::SendFile:
+      if (event_handler_)
+        event_handler_->on_file_receive(*header, msg.body_as<SendFilePayload>());
+      break;
+    case Message::Type::UserLogin:
+      if (event_handler_)
+        event_handler_->on_user_login(msg.body_as<UserLoginPayload>());
+      break;
+    case Message::Type::UserLogout:
+      if (event_handler_)
+        event_handler_->on_user_logout(msg.body_as<UserLogoutPayload>());
+      break;
+    case Message::Type::UserOnlineResponse:
+      if (event_handler_)
+        event_handler_->on_user_online_response(msg.body_as<UserOnlinePayload>());
+      break;
+    case Message::Type::UserDetailsResponse:
+      if (event_handler_)
+        event_handler_->on_user_detail_response(msg.body_as<UserDetailPayload>());
+      break;
+    case Message::Type::Feedback:
+      if (event_handler_)
+        event_handler_->on_feedback_response(msg.body_as<FeedbackPayload>());
+      break;
     }
   }
 } // namespace ar

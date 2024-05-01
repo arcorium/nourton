@@ -32,13 +32,15 @@ namespace ar
     void on_connection_closed(Connection& conn) noexcept override;
 
   private:
-    asio::awaitable<void> connection_accepter() noexcept;
+    asio::awaitable<void> connection_acceptor() noexcept;
 
     void connection_handler(const asio::error_code& ec,
                             asio::ip::tcp::socket&& socket) noexcept;
     User* login_message_handler(Connection& conn,
                                 const LoginPayload& payload) noexcept;
     bool register_message_handler(RegisterPayload&& payload) noexcept;
+
+    void broadcast(Message&& message, User::id_type except = 0) noexcept;
 
   private:
     asio::any_io_executor m_executor;

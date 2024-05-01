@@ -5,7 +5,6 @@
 #include <string_view>
 #include <span>
 
-
 #include "util/types.h"
 
 namespace ar
@@ -14,6 +13,7 @@ namespace ar
 	constexpr static u32 MASK_32BIT = std::numeric_limits<u32>::max();
 	constexpr static u8 MASK_8BIT = std::numeric_limits<u8>::max();
 
+	// TODO: Move to Camellia class
 	constexpr static u8 KEY_BYTE = 128 / 8;
 
 	constexpr static u64 SIGMA[]{
@@ -111,7 +111,7 @@ namespace ar
 	class Camellia
 	{
 	public:
-		using block_type = std::span<u8>;
+		using block_type = std::span<const u8>;
 		using key_type = std::span<const u8, KEY_BYTE>;
 
 		explicit Camellia(key_type key) noexcept;
@@ -140,7 +140,7 @@ namespace ar
 		 * @param bytes text with arbitrary size
 		 * @return garbage as usize and the cipher text as vector<u8>
 		 */
-		[[nodiscard]] std::tuple<usize, std::vector<u8>> encrypts(std::span<u8> bytes) const noexcept;
+		[[nodiscard]] std::tuple<usize, std::vector<u8>> encrypts(std::span<const u8> bytes) const noexcept;
 
 		/**
 		 * decipher cipher text for single block, it will only return error message when the cipher_block is not 16 bytes long
@@ -157,7 +157,7 @@ namespace ar
 		 * @return deciphered or original text with same size as the bytes parameter or error message
 		 */
 		[[nodiscard]] std::expected<std::vector<u8>, std::string_view> decrypts(
-			std::span<u8> bytes, usize garbage = 0) const noexcept;
+			std::span<const u8> bytes, usize garbage = 0) const noexcept;
 
 		[[nodiscard]] key_type key() const noexcept;
 

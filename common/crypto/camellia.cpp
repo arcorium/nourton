@@ -26,7 +26,6 @@ namespace ar
     for (const auto& [i, byte] : key | std::views::enumerate)
       key_[i] = byte;
 
-
     // TODO: use key_ instead of key from parameter
     u128 kl = rawToBoost_uint128(key.data());
     u128 kr = 0; // 0, becuase the key only 128 bit
@@ -78,9 +77,7 @@ namespace ar
   }
 
   Camellia::Camellia() noexcept
-    : Camellia{random_bytes<KEY_BYTE>()}
-  {
-  }
+    : Camellia{random_bytes<KEY_BYTE>()} {}
 
   std::expected<Camellia, std::string_view> Camellia::create(std::string_view key) noexcept
   {
@@ -136,7 +133,7 @@ namespace ar
     return combine_to_bytes(d1, d2);
   }
 
-  std::tuple<usize, std::vector<u8>> Camellia::encrypts(std::span<u8> bytes) const noexcept
+  std::tuple<usize, std::vector<u8>> Camellia::encrypts(std::span<const u8> bytes) const noexcept
   {
     // Check the modulo
     auto remaining = bytes.size() % KEY_BYTE;
@@ -205,7 +202,8 @@ namespace ar
     return combine_to_bytes(d1, d2);
   }
 
-  std::expected<std::vector<u8>, std::string_view> Camellia::decrypts(std::span<u8> bytes, usize garbage) const noexcept
+  std::expected<std::vector<u8>, std::string_view> Camellia::decrypts(std::span<const u8> bytes,
+                                                                      usize garbage) const noexcept
   {
     if (bytes.size() % KEY_BYTE != 0)
       return std::unexpected("the ciphertext size is not multiple of 16"sv);

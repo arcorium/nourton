@@ -5,8 +5,10 @@
 
 #include "util.h"
 
+#include "crypto/camellia.h"
 #include "crypto/dm_rsa.h"
 
+#include "util/algorithm.h"
 #include "util/convert.h"
 
 TEST(rsa, prime_key_generated)
@@ -68,7 +70,7 @@ TEST(rsa, encrypt_bytes)
 
 TEST(dm_rsa, prime_key_inputted)
 {
-  ar::DMRSA rsa{11, 29, 13, 23};
+  ar::DMRSA rsa{13, 23, 11, 29};
   u8 message = 0xDE;
   auto cipher = rsa.encrypt(message);
   ASSERT_TRUE(cipher.has_value());
@@ -76,20 +78,46 @@ TEST(dm_rsa, prime_key_inputted)
   auto decipher = rsa.decrypt(cipher.value());
   ASSERT_EQ(decipher, message);
 
-  u32 bigger_message = 0xDEEDBEEF;
+  u16 bigger_message = 0xDEED;
   cipher = rsa.encrypt(bigger_message);
   ASSERT_FALSE(cipher.has_value());
 }
 
 TEST(dm_rsa, prime_key_generated)
 {
-  ar::DMRSA rsa{};
-  u32 message = 0xDEEDBEEF;
-  auto cipher = rsa.encrypt(message);
-  ASSERT_TRUE(cipher.has_value());
+  for (usize i = 0; i < 1000; ++i)
+  {
+    ar::DMRSA rsa{ar::DMRSA::low_prime};
+    u8 message = 0xDE;
+    auto cipher = rsa.encrypt(message);
+    ASSERT_TRUE(cipher.has_value());
 
-  auto decipher = rsa.decrypt(cipher.value());
-  ASSERT_EQ(decipher, message);
+    auto decipher = rsa.decrypt(cipher.value());
+    ASSERT_EQ(decipher, message);
+  }
+
+  for (usize i = 0; i < 100; ++i)
+  {
+    ar::DMRSA rsa{ar::DMRSA::mid_prime};
+    u16 message = 0xDEED;
+    auto cipher = rsa.encrypt(message);
+    ASSERT_TRUE(cipher.has_value());
+
+    auto decipher = rsa.decrypt(cipher.value());
+    ASSERT_EQ(decipher, message);
+  }
+
+  for (usize i = 0; i < 50; ++i)
+  {
+    ar::DMRSA rsa{};
+    // u32 message = 0xDEEDBEEF;
+    auto message = std::numeric_limits<ar::DMRSA::block_type>::max(); // max value
+    auto cipher = rsa.encrypt(message);
+    ASSERT_TRUE(cipher.has_value());
+
+    auto decipher = rsa.decrypt(cipher.value());
+    ASSERT_EQ(decipher, message);
+  }
 }
 
 TEST(dm_rsa, encrypt_bytes)
@@ -111,11 +139,94 @@ TEST(dm_rsa, encrypt_bytes)
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
-  // auto& decipher_bytes = decipher.value();
   auto decipher_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher.value(), filler);
 
-  // fmt::println("Original  : {}", message_bytes);
-  // fmt::println("Deciphered: {}", decipher_bytes);
+  check_span_eq<u8, u8>(message_bytes, decipher_bytes);
+}
+
+TEST(dm_rsa, encrypt_bytes_with_remainder)
+{
+  std::string_view message{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat.abc"};
+  auto message_bytes = ar::as_span(message);
+  usize expected_filler = 0;
+  if (auto result = message.size() % ar::size_of<ar::DMRSA::block_type>())
+    expected_filler = ar::size_of<ar::DMRSA::block_type>() - result;
+
+  ar::DMRSA rsa{};
+  auto [filler, cipher] = rsa.encrypts(message_bytes);
+  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>() + (expected_filler ? 1 : 0));
+  EXPECT_EQ(filler, expected_filler);
+  auto cipher_bytes = ar::as_bytes<ar::DMRSA::block_enc_type>(cipher);
+  EXPECT_EQ(cipher_bytes.size(),
+            std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::DMRSA::block_type>()) *
+            ar::size_of<ar::DMRSA::block_enc_type>());
+
+  auto decipher = rsa.decrypts(cipher_bytes);
+  ASSERT_TRUE(decipher.has_value());
+  auto decipher_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher.value(), filler);
 
   check_span_eq<u8, u8>(message_bytes, decipher_bytes);
+}
+
+TEST(boost_multiprecision, number_to_bytes)
+{
+  u128 number{0x1122334455667788};
+  u128 number_1{"0x11223344556677889900aabbccddeeff"};
+
+  // std::cout << std::hex << "Number: " << number << std::endl;
+  // std::cout << std::hex << "Number 1: " << number_1 << std::endl;
+
+  auto bytes = ar::as_bytes(number);
+  auto bytes1 = ar::as_bytes(number_1);
+
+  // boost::multiprecision::export_bits(number_1, std::back_inserter(bytes), 8);
+
+  auto number_2 = ar::rawToBoost_uint128(bytes.data());
+  auto number_3 = ar::rawToBoost_uint128(bytes1.data());
+
+  // std::cout << std::hex << "Number 2: " << number_2 << std::endl;
+
+  ASSERT_EQ(number, number_2);
+  ASSERT_EQ(number_3, number_1);
+}
+
+TEST(dm_rsa, serialization)
+{
+  ar::DMRSA rsa{};
+
+  auto pk = rsa.public_key();
+  auto pk_bytes = ar::serialize(pk);
+  EXPECT_EQ(pk_bytes.size(), (2 * ar::size_of<ar::DMRSA::prime_type>() + 2 * ar::size_of<ar::DMRSA::key_type>()));
+
+  auto decipher_pk = ar::deserialize(pk_bytes);
+  ASSERT_TRUE(decipher_pk.has_value());
+  pk_bytes.emplace_back(0);
+  auto temp_pk = ar::deserialize(pk_bytes);
+  EXPECT_FALSE(temp_pk.has_value());
+
+  EXPECT_EQ(decipher_pk->e1_, pk.e1_);
+  EXPECT_EQ(decipher_pk->e2_, pk.e2_);
+  EXPECT_EQ(decipher_pk->n1_, pk.n1_);
+  EXPECT_EQ(decipher_pk->n2_, pk.n2_);
+}
+
+TEST(dm_rsa, encrypt_camellia_key)
+{
+  for (usize i = 0; i < 20; ++i)
+  {
+    auto original_key = ar::random_bytes<16>();
+    // auto original_key = std::span<u8, 16>(ar::as_span(key_str));
+    ar::Camellia camellia{original_key};
+
+    ar::DMRSA rsa{};
+
+    auto [filler, cipher] = rsa.encrypts(original_key);
+    auto cipher_bytes = ar::as_bytes<u64>(cipher);
+    auto decipher_key = rsa.decrypts(cipher_bytes);
+    ASSERT_TRUE(decipher_key.has_value());
+    auto decipher_key_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher_key.value(), filler);
+
+    // check_span_eq<u8, u8>(original_key, decipher_key.value());
+    check_span_eq<u8, u8>(original_key, decipher_key_bytes);
+  }
 }

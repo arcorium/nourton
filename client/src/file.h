@@ -2,6 +2,8 @@
 #include <string>
 #include <user.h>
 
+#include "crypto/dm_rsa.h"
+
 #include "util/types.h"
 
 namespace ar
@@ -21,12 +23,23 @@ namespace ar
   Other,
  };
 
+ // Specific user for client
+ // TODO: Move it from this header
+ struct UserClient
+ {
+  bool is_online;
+  User::id_type id;
+  std::string name;
+  DMRSA::_public_key public_key;
+ };
+
  struct FileProperty
  {
-  std::string filename;
-  usize size; // in byte
   FileFormat format;
-  User* sender; // sender == nullptr, means the sender is itself
+  usize size; // in byte
+  UserClient* sender; // sender == nullptr, means the sender is itself
+  std::string filename;
+  std::string timestamp;
  };
 
  static constexpr std::string_view get_filename(std::string_view fullpath) noexcept
@@ -43,6 +56,19 @@ namespace ar
    return fullpath.substr(idx + 1);
 
   return fullpath.substr(idx + 1, last_idx - idx - 1);
+ }
+
+ static constexpr std::string_view get_filename_with_format(std::string_view fullpath) noexcept
+ {
+  auto idx = fullpath.find_last_of('/');
+  if (idx == std::string::npos)
+  {
+   idx = fullpath.find_last_of('\\');
+   if (idx == std::string::npos)
+    return fullpath;
+  }
+
+  return fullpath.substr(idx + 1);
  }
 
  // WARN: doesn't support multiple format file like .tar.xz or .7z.001

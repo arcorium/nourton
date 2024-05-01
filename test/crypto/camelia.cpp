@@ -12,7 +12,6 @@
 #include "util/convert.h"
 #include "util.h"
 
-
 TEST(camellia, sbox)
 {
   uint8_t sboxes[3][256];
@@ -56,9 +55,6 @@ TEST(camellia, camellia_block)
 
   auto cipher = camellia.encrypt(text_span);
   auto decipher = camellia.decrypt(cipher.value()).value();
-
-  // fmt::println("Original: {}", text_span);
-  // fmt::println("Decipher: {}", decipher);
 
   for (size_t i = 0; i < 16; ++i)
   {

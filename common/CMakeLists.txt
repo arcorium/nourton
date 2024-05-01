@@ -21,6 +21,9 @@ add_library(nourton-common STATIC
 	logger.cpp
 	crypto/dm_rsa.cpp
 	crypto/dm_rsa.h
+	util/file.h
+	util/concept.h
+	util/time.h
 )
 
 target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)

@@ -15,6 +15,8 @@ int main()
 	constexpr static usize thread_num = 5;
 	asio::thread_pool context{thread_num};
 
+	auto guard = asio::make_work_guard(context);
+
 	asio::ip::tcp::endpoint ep{asio::ip::tcp::v4(), 1231};
 	ar::Server server{context.executor(), ep};
 	server.start();

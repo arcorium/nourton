@@ -16,10 +16,11 @@ namespace ar
     std::vector<u8> public_key;
   };
 
-
-  struct UserClient
+  struct UserResponse
   {
     User::id_type id;
     std::string name;
+    // std::vector<u8> public_key;
+    // DMRSA::_public_key public_key;
   };
 }

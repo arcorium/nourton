@@ -8,5 +8,6 @@ add_executable(crypto_test crypto/camelia.cpp
 	crypto/util.h)
 target_link_libraries(crypto_test PRIVATE nourton-common GTest::gtest GTest::gtest_main)
 
-add_executable(util_test util/convert.cpp util/algorithm.cpp)
+add_executable(util_test util/convert.cpp util/algorithm.cpp
+	util/file_operation.cpp)
 target_link_libraries(util_test PRIVATE nourton-common GTest::gtest GTest::gtest_main)

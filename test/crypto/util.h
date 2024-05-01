@@ -25,7 +25,7 @@ static void check_span_eq(std::span<T> lhs, std::span<U> rhs) noexcept
   for (size_t i = 0; i < lhs.size(); ++i)
   {
     SCOPED_TRACE(i);
-    ASSERT_EQ(lhs[i], rhs[i]);
+    EXPECT_EQ(lhs[i], rhs[i]);
   }
 }
 

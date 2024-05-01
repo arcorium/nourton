@@ -33,7 +33,7 @@ namespace ar
                               m_acceptor.local_endpoint().address().to_string(),
                               m_acceptor.local_endpoint().port()));
 
-    asio::co_spawn(m_strand, [this] { return connection_accepter(); }, asio::detached);
+    asio::co_spawn(m_strand, [this] { return connection_acceptor(); }, asio::detached);
 
     // m_acceptor.async_accept(asio::bind_executor(
     //   m_strand, std::bind(&Server::connection_handler, this,
@@ -51,9 +51,9 @@ namespace ar
       if (conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::Authenticated,
+          .id = PayloadId::Login,
           .response = false,
-          .message = AUTHENTICATED_MESSAGE.data(),
+          .message = std::string{AUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -61,6 +61,13 @@ namespace ar
 
       auto payload = msg.body_as<LoginPayload>();
       User* user = login_message_handler(conn, payload);
+
+      if (user)
+      {
+        // send signal UserLogin payload
+        UserLoginPayload login_payload{user->id, user->name};
+        broadcast(login_payload.serialize(), user->id);
+      }
 
       // DEBUG
       if constexpr (_DEBUG)
@@ -84,9 +91,9 @@ namespace ar
       if (conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::Authenticated,
+          .id = PayloadId::Register,
           .response = false,
-          .message = AUTHENTICATED_MESSAGE.data(),
+          .message = std::string{AUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -96,7 +103,7 @@ namespace ar
       bool result = register_message_handler(std::move(payload));
       if constexpr (_DEBUG)
       {
-        if (result)
+        if (!result)
           Logger::info(
             fmt::format("connection-{} failed on registering with username: {}",
                         conn.id(), payload.username));
@@ -109,18 +116,130 @@ namespace ar
       conn.write(resp.serialize());
       break;
     }
-    case Message::Type::GetUserOnline:
+    case Message::Type::StorePublicKey: {
+      // prevent authenticated connection
+      if (!conn.is_authenticated())
+      {
+        FeedbackPayload resp_payload{
+          .id = PayloadId::StorePublicKey,
+          .response = false,
+          .message = std::string{UNAUTHENTICATED_MESSAGE},
+        };
+        conn.write(resp_payload.serialize());
+        break;
+      }
+
+      auto payload = msg.body_as<StorePublicKeyPayload>();
+      auto it = std::ranges::find_if(m_users,
+                                     [&](const std::unique_ptr<User>& user) {
+                                       return user->id == conn.user()->id;
+                                     });
+
+      FeedbackPayload resp_payload;
+      if (it == m_users.end())
+      {
+        // user not found
+        Logger::error(fmt::format("connection-{} trying to store public key to user that doesn't exists", conn.id()));
+        resp_payload = FeedbackPayload{
+          .id = PayloadId::StorePublicKey,
+          .response = false,
+        };
+      }
+      else
+      {
+        // save public key
+        it->get()->public_key = std::move(payload.public_key);
+
+        resp_payload = FeedbackPayload{
+          .id = PayloadId::StorePublicKey,
+          .response = true,
+        };
+      }
+
+      conn.write(resp_payload.serialize());
       break;
-    case Message::Type::GetUserDetails:
+    }
+    case Message::Type::GetUserOnline: {
+      // prevent authenticated connection
+      if (!conn.is_authenticated())
+      {
+        FeedbackPayload resp_payload{
+          .id = PayloadId::GetUserOnline,
+          .response = false,
+          .message = std::string{UNAUTHENTICATED_MESSAGE},
+        };
+        conn.write(resp_payload.serialize());
+        break;
+      }
+
+      // filter online users
+      std::vector<UserResponse> users;
+      // users.reserve(m_users.size() - 1);
+      for (const auto& con : m_connections)
+      {
+        if (!con->user() || con->user()->id == conn.user()->id)
+          continue;
+        users.emplace_back(con->user()->id, con->user()->name); // make sure password is not sent
+      }
+
+      UserOnlinePayload payload{
+        .users = std::move(users)
+      };
+
+      conn.write(payload.serialize());
       break;
+    }
+    case Message::Type::GetUserDetails: {
+      // prevent authenticated connection
+      if (!conn.is_authenticated())
+      {
+        FeedbackPayload resp_payload{
+          .id = PayloadId::GetUserDetails,
+          .response = false,
+          .message = std::string{UNAUTHENTICATED_MESSAGE},
+        };
+        conn.write(resp_payload.serialize());
+        break;
+      }
+
+      auto payload = msg.body_as<GetUserDetailsPayload>();
+      // get the user
+      auto it = std::ranges::find_if(m_users, [&](const std::unique_ptr<User>& user) {
+        return user->id == payload.id;
+      });
+
+      UserDetailPayload resp_payload;
+      if (it == m_users.end())
+      {
+        Logger::warn(fmt::format("connection-{} trying to get user-{} details that doesn't exists", conn.id(),
+                                 payload.id));
+        // bad payload
+        resp_payload = UserDetailPayload{
+          .id = 0,
+          .username = "",
+        };
+      }
+      else
+      {
+        resp_payload = UserDetailPayload{
+          .id = it->get()->id,
+          .username = it->get()->name,
+          .public_key = it->get()->public_key
+        };
+      }
+
+      conn.write(resp_payload.serialize());
+
+      break;
+    }
     case Message::Type::SendFile: {
       // check if authenticated
       if (!conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::Unauthenticated,
+          .id = PayloadId::SendFile,
           .response = false,
-          .message = UNAUTHENTICATED_MESSAGE.data(),
+          .message = std::string{UNAUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -131,7 +250,7 @@ namespace ar
       if (!m_user_connections.contains(header->opponent_id))
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::UserCheck,
+          .id = PayloadId::SendFile,
           .response = false,
           .message = "user doesn't online"
         };
@@ -156,6 +275,7 @@ namespace ar
       // Send to all clients connected to specific user
       for (auto& connId : connections)
       {
+        // change opponent id into sender id
         auto serialized = payload.serialize(conn.user()->id);
 
         const auto con = std::ranges::find_if(
@@ -164,11 +284,19 @@ namespace ar
           });
 
         if (con == m_connections.end())
+        {
+          Logger::warn(fmt::format("user connections has id that not belongs to any client: {}", connId));
           continue;
+        }
 
         con->get()->write(std::move(serialized));
       }
 
+      FeedbackPayload resp_payload{
+        .id = PayloadId::SendFile,
+        .response = true,
+      };
+      conn.write(resp_payload.serialize());
       break;
     }
     }
@@ -184,23 +312,29 @@ namespace ar
     Logger::trace(fmt::format("remove connection-{} from database", conn.id()));
     if (conn.is_authenticated())
     {
+      // remove from user connections map
       auto user_id = conn.user()->id;
       auto& connections = m_user_connections[user_id];
       std::erase(connections, conn.id());
 
       // remove from map when the user no longer has connection
       if (connections.empty())
+      {
         m_user_connections.erase(user_id);
+        // send signal UserLogout payload except for current user
+        UserLogoutPayload payload{user_id};
+        broadcast(payload.serialize(), user_id);
+      }
     }
 
+    // delete client connection
     std::erase_if(m_connections,
                   [rconn = &conn](const std::weak_ptr<Connection>& conn) {
                     return rconn->id() == conn.lock()->id();
                   });
-    auto count = conn.shared_from_this().use_count();
   }
 
-  asio::awaitable<void> Server::connection_accepter() noexcept
+  asio::awaitable<void> Server::connection_acceptor() noexcept
   {
     while (true)
     {
@@ -274,5 +408,21 @@ namespace ar
       m_user_id_generator.gen(), std::move(payload.username),
       std::move(payload.password), std::vector<u8>{}));
     return true;
+  }
+
+  void Server::broadcast(Message&& message, User::id_type except) noexcept
+  {
+    Logger::trace(fmt::format("Broadcasting message except for client {}", except));
+
+    for (const auto& conn : m_connections)
+    {
+      // ignore unauthenticated connection and excluded user id
+      if (!conn->user() || conn->user()->id == except)
+        continue;
+
+      // need to copy each message, because it will moved fo each writing
+      auto msg_copy = message;
+      conn->write(std::move(msg_copy));
+    }
   }
 } // namespace ar

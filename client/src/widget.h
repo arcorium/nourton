@@ -103,7 +103,7 @@ namespace ar
   static void loading_overlay(bool is_close) noexcept
   {
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal(State::overlay_state_id(OverlayState::Loading).data(), nullptr,
+    if (ImGui::BeginPopupModal(State::loading_overlay_id().data(), nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration |
                                ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove))
     {
@@ -122,27 +122,27 @@ namespace ar
   //  |   |_______|                                 |
   //  |_____________________________________________|
   // 1: username
-  static void user_widget(std::string_view id, std::string_view username, ResourceManager& resource_manager) noexcept
+  static void user_widget(const UserClient& user, ResourceManager& resource_manager) noexcept
   {
     constexpr static ImVec4 GREEN_COLOR = color_from_hex(0x86ae63FF);
     constexpr static ImVec4 RED_COLOR = color_from_hex(0xe34844ff);
     static auto image_prop = resource_manager.image("profile-user_32.png").value();
 
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 18.f);
-    if (ImGui::BeginChild(id.data(), {0.f, 40.f}, ImGuiChildFlags_Border))
+    if (ImGui::BeginChild(user.id, {0.f, 40.f}, ImGuiChildFlags_Border))
     {
       ImGui::Image((ImTextureID)(intptr_t)image_prop.id, {24.f, 24.f});
       ImGui::SameLine();
-      ImGui::Text(username.data());
+      ImGui::Text(user.name.data());
       ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
 
       ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 20.f);
 
-      ImGui::PushStyleColor(ImGuiCol_Button, GREEN_COLOR);
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GREEN_COLOR);
-      ImGui::PushStyleColor(ImGuiCol_ButtonActive, GREEN_COLOR);
+      ImGui::PushStyleColor(ImGuiCol_Button, user.is_online ? GREEN_COLOR : RED_COLOR);
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, user.is_online ? GREEN_COLOR : RED_COLOR);
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, user.is_online ? GREEN_COLOR : RED_COLOR);
 
-      ImGui::Button(fmt::format(" ##{}", id).data(),
+      ImGui::Button(fmt::format(" ##{}33", user.id).data(),
                     {ImGui::GetWindowHeight() * 0.6f, ImGui::GetWindowHeight() * 0.6f});
 
       ImGui::PopStyleColor(3);
@@ -157,8 +157,6 @@ namespace ar
   {
     static int selected_radio = 0;
 
-    constexpr static ImVec4 GREEN_COLOR = color_from_hex(0x86ae63FF);
-    constexpr static ImVec4 RED_COLOR = color_from_hex(0xe34844ff);
     static auto image_prop = resource_manager.image("profile-user_32.png").value();
 
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 18.f);
@@ -228,12 +226,16 @@ namespace ar
       auto font = resource_manager.font("FiraCodeNerdFont-SemiBold.ttf", 14.f);
       ImGui::PushFont(font);
 
-      constexpr std::string_view sender{"Sender"};
-      constexpr std::string_view time{"12-12-2004 12:45"};
+      std::string_view sender = property.sender->name;
+      std::string_view time = property.timestamp;
       auto text_size = ImGui::CalcTextSize(sender.data());
       auto time_size = ImGui::CalcTextSize(time.data());
       auto& style = ImGui::GetStyle();
 
+      if (sender == "me"sv)
+      {
+        ImGui::PushStyleColor(ImGuiCol_Button, color_from_hex(0xd6894eff));
+      }
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_Button));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_Button));
 
@@ -245,7 +247,7 @@ namespace ar
       ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y - 4.f);
       ImGui::Button(time.data());
 
-      ImGui::PopStyleColor(2);
+      ImGui::PopStyleColor(2 + (sender == "me"sv ? 1 : 0));
       ImGui::PopFont();
     }
     ImGui::EndChild();

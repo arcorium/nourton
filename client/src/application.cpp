@@ -28,6 +28,14 @@
 
 #include <tinyfiledialogs.h>
 
+#include "crypto/camellia.h"
+#include "crypto/dm_rsa.h"
+
+#include "util/algorithm.h"
+#include "util/convert.h"
+#include "util/file.h"
+#include "util/time.h"
+
 namespace ar
 {
   namespace gui = ImGui;
@@ -35,48 +43,13 @@ namespace ar
   static bool is_send_file_modal_open = false;
 
   Application::Application(asio::io_context& ctx, Window window) noexcept
-    : is_running_{false}, context_{ctx}, gui_state_{PageState::Login},
-      window_{std::move(window)},
-      client_{ctx.get_executor(), asio::ip::make_address_v4("127.0.0.1"), 1231, this}
+    : is_running_{false}, context_{ctx}, state_{PageState::Login}, window_{std::move(window)},
+      asymmetric_encryptor_{}, client_{ctx.get_executor(), asio::ip::make_address_v4("127.0.0.1"), 1231, this}
   {
+    users_.reserve(1024);
     username_.reserve(255);
     password_.reserve(255);
     confirm_password_.reserve(255);
-
-    users_.emplace_back(1, "mizhan", "");
-    users_.emplace_back(2, "nahzim", "");
-    users_.emplace_back(3, "nahzim", "");
-    users_.emplace_back(4, "nahzim", "");
-    users_.emplace_back(5, "nahzim", "");
-    users_.emplace_back(6, "nahzim", "");
-    users_.emplace_back(7, "nahzim", "");
-    users_.emplace_back(8, "nahzim", "");
-    users_.emplace_back(9, "nahzim", "");
-    users_.emplace_back(10, "nahzim", "");
-    users_.emplace_back(11, "nahzim", "");
-    users_.emplace_back(12, "nahzim", "");
-    users_.emplace_back(13, "nahzim", "");
-    users_.emplace_back(14, "nahzim", "");
-    users_.emplace_back(15, "nahzim", "");
-    users_.emplace_back(16, "nahzim", "");
-    users_.emplace_back(17, "nahzim", "");
-    users_.emplace_back(18, "nahzim", "");
-    users_.emplace_back(19, "nahzim", "");
-    users_.emplace_back(20, "nahzim", "");
-    users_.emplace_back(21, "nahzim", "");
-
-    files_.emplace_back("file 1");
-    files_.emplace_back("file 2");
-    files_.emplace_back("file 3");
-    files_.emplace_back("file 4");
-    files_.emplace_back("file 5");
-    files_.emplace_back("file 6");
-    files_.emplace_back("file 7");
-    files_.emplace_back("file 8");
-    files_.emplace_back("file 9");
-    files_.emplace_back("file 10");
-    files_.emplace_back("file 11");
-    files_.emplace_back("file 12");
   }
 
   Application::~Application() noexcept
@@ -85,9 +58,17 @@ namespace ar
     ImGui_ImplGlfw_Shutdown();
     gui::DestroyContext();
 
+    // Clear
+    for (usize i = 0; i < send_file_datas_.size(); ++i)
+      send_file_datas_.pop();
+
+    send_file_cv_.notify_all();
+    if (send_file_thread_.joinable())
+      send_file_thread_.join();
+
+    // send file thread needs the query window, so it should be destroyed after the thread
     window_.destroy();
     glfwTerminate();
-
     Logger::info("Application stopped!");
   }
 
@@ -157,7 +138,10 @@ namespace ar
   {
     window_.update();
     if (!client_.is_connected())
-      gui_state_.active_overlay(OverlayState::ClientDisconnected);
+    {
+      state_.disable_loading_overlay();
+      state_.active_overlay(OverlayState::ClientDisconnected);
+    }
   }
 
   void Application::start() noexcept
@@ -214,13 +198,113 @@ namespace ar
     is_running_ = false;
   }
 
+  void Application::send_file_thread() noexcept
+  {
+    while (is_running())
+    {
+      // when the work is empty, then wait or continue until there's no work left
+      if (send_file_datas_.empty())
+      {
+        // wait until there is a work
+        {
+          std::unique_lock lock{send_file_data_mutex_};
+          send_file_cv_.wait(lock);
+
+          // exit thread and handle spurious wake-up
+          if (send_file_datas_.empty())
+            continue;
+        }
+      }
+
+      auto data = std::move(send_file_datas_.front());
+      send_file_datas_.pop();
+
+      std::string_view filepath = data.filepath;
+      std::string_view filename = get_filename_with_format(filepath);
+
+      UserClient* user{};
+      {
+        std::unique_lock lock{user_mutex_};
+
+        auto it = std::ranges::find_if(users_, [&](const UserClient& uc) { return uc.id == data.user_id; });
+        if (it == users_.end())
+        {
+          Logger::error("trying to send file to user that doesn't exists");
+          state_.disable_loading_overlay();
+          state_.active_overlay(OverlayState::SendFileFailed);
+          continue;
+        }
+
+        user = &*it;
+      }
+
+      // FIX: not needed, because the condition variable will only signaled when the user detail is ready
+      if (!user->public_key.is_valid())
+      {
+        // wait until user detail received
+        if (state_.expected_operation_state() != OperationState::GetUserDetails)
+        {
+          Logger::error("trying to send file to user with no public key and not getting the public key");
+          state_.disable_loading_overlay();
+          state_.active_overlay(OverlayState::InternalError);
+          continue;
+        }
+        while (state_.operation_state() != OperationState::GetUserDetails)
+          std::this_thread::sleep_for(10ms);
+      }
+
+      state_.disable_loading_overlay();
+      state_.expect_operation_state(OperationState::SendFile);
+
+      // Read file
+      auto result = read_file_as_bytes(filepath);
+      if (!result.has_value())
+      {
+        Logger::error(result.error());
+        state_.active_overlay(OverlayState::FileNotExist);
+        continue;
+      }
+
+      // Encrypt file
+      auto symmetric_key = random_bytes<16>();
+      Camellia symmetric{symmetric_key};
+      auto [file_filler, enc_files] = symmetric.encrypts(result.value());
+
+      // Encrypt symmetric key
+      DMRSA rsa{user->public_key};
+      auto [key_filler, enc_key] = rsa.encrypts(symmetric_key);
+
+      // PERF: asymmetric returning vector<u8> instead of vector<u64> so it can be moved instead of copying
+      auto enc_key_bytes = ar::as_bytes<usize>(enc_key);
+
+      auto [format, format_str] = get_file_format(filename);
+      // Send payload
+      SendFilePayload payload{
+        .file_filler = static_cast<u8>(file_filler),
+        .key_filler = static_cast<u8>(key_filler),
+        .file_size = result->size(),
+        .filename = std::string{filename},
+        .timestamp = get_current_time(),
+        .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
+        .files = std::move(enc_files)
+      };
+      client_.connection().write(payload.serialize(user->id));
+
+      {
+        std::unique_lock lock{file_mutex_};
+        files_.emplace_back(format, result->size(), this_user_.get(), std::string{filename},
+                            std::move(payload.timestamp));
+      }
+    }
+  }
+
   void Application::draw() noexcept
   {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     gui::NewFrame();
 
-    switch (gui_state_.page_state())
+    switch (state_.page_state())
     {
     case PageState::Login:
       login_page();
@@ -241,10 +325,12 @@ namespace ar
 
   void Application::draw_overlay() noexcept
   {
-    if (auto state = gui_state_.toggle_overlay_state(); state != OverlayState::None)
+    if (auto state = state_.toggle_overlay_state(); state != OverlayState::None)
       gui::OpenPopup(State::overlay_state_id(state).data());
     // else
     //   return;
+    if (state_.is_loading())
+      gui::OpenPopup(State::loading_overlay_id().data());
 
     // TODO: The current problem when the overlay state is toggled, it will become None afterward
     // so it makes next frame unable to show the expected overlay
@@ -264,13 +350,19 @@ namespace ar
                          ICON_FA_STOP" There's some empty field"sv,
                          "Please fill all fields and try again"sv);
 
+    // Internal Error
+    notification_overlay(State::overlay_state_id(OverlayState::InternalError),
+                         ICON_FA_STOP" Some error happens"sv,
+                         "Please close and open the application again"sv);
+
+    notification_overlay(State::overlay_state_id(OverlayState::SendFileFailed),
+                         ICON_FA_STOP" failed to send error on server"sv,
+                         "Please send the file again"sv);
+
     // Password Different
     notification_overlay(State::overlay_state_id(OverlayState::PasswordDifferent),
                          ICON_FA_STOP" Password and Confirm Password fields has different value"sv,
                          "Please check and try again"sv);
-
-    // Loading
-    loading_overlay(!gui_state_.is_loading());
 
     // Login Failed
     notification_overlay(State::overlay_state_id(OverlayState::LoginFailed),
@@ -279,6 +371,13 @@ namespace ar
     // Register failed
     notification_overlay(State::overlay_state_id(OverlayState::RegisterFailed),
                          "User with those username already exist"sv, "Please provide different username");
+
+    // File Doesn't  Exists
+    notification_overlay(State::overlay_state_id(OverlayState::FileNotExist),
+                         "File provided is not exists or broken"sv, "Please select another file and try again");
+
+    // Loading
+    loading_overlay(!state_.is_loading());
   }
 
   void Application::login_page() noexcept
@@ -411,8 +510,8 @@ namespace ar
           gui::EndMenuBar();
         }
 
-        std::ranges::for_each(users_, [this](const User& user) {
-          user_widget(std::to_string(user.id), user.name, resource_manager_);
+        std::ranges::for_each(users_, [this](const UserClient& user) {
+          user_widget(user, resource_manager_);
         });
       }
       gui::EndChild();
@@ -455,6 +554,11 @@ namespace ar
     if (gui::BeginPopupModal(State::overlay_state_id(OverlayState::SendFile).data(), &is_send_file_modal_open,
                              ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
     {
+      if (state_.overlay_state() != OverlayState::SendFile)
+      {
+        gui::CloseCurrentPopup();
+      }
+
       if (gui::BeginChild("user-online-select", {viewport->WorkSize.x * 0.25f, 0}, ImGuiChildFlags_Border,
                           ImGuiWindowFlags_MenuBar))
       {
@@ -464,7 +568,11 @@ namespace ar
           gui::EndMenuBar();
         }
 
-        std::ranges::for_each(users_ | std::views::enumerate, [this](const std::tuple<usize, User>& data) {
+        // filter out offline user
+        auto filtered_users = users_
+          | std::views::filter([](const UserClient& user) { return user.is_online; })
+          | std::views::enumerate;
+        std::ranges::for_each(filtered_users, [this](const std::tuple<usize, UserClient>& data) {
           auto n = std::get<0>(data);
           auto& user = std::get<1>(data);
           selected_user_ = selectable_user_widget(std::to_string(user.id), user.name, n, resource_manager_);
@@ -524,7 +632,8 @@ namespace ar
             gui::TextUnformatted(dropped_file_path_.data());
 
             // File size
-            auto size = std::filesystem::file_size(dropped_file_path_);
+            usize size = 0;
+            size = std::filesystem::file_size(dropped_file_path_);
             // MB for more than 10KB and KB otherwise
             float good_size;
             std::string_view type{};
@@ -578,16 +687,23 @@ namespace ar
 
         if (gui::Button(open_file_text.data()))
         {
-          auto path = tinyfd_openFileDialog(nullptr, nullptr, 0, nullptr, nullptr, 0);
-          Logger::trace(fmt::format("Path: {}", path));
-          dropped_file_path_ = path;
+          const auto path = tinyfd_openFileDialog(nullptr, nullptr, 0, nullptr, nullptr, 0);
+          if (path)
+          {
+            Logger::trace(fmt::format("Path: {}", path));
+            dropped_file_path_ = path;
+          }
         }
 
         gui::SameLine();
+        // prevent when no user selected
+        gui::BeginDisabled(selected_user_ < 0 || dropped_file_path_.empty());
         if (gui::Button("Send", {send_text_x_size, 0.f}))
         {
-          send_file();
+          // allow only single file encryption at a moment
+          send_file_handler();
         }
+        gui::EndDisabled();
         gui::EndChild();
       }
       gui::EndPopup();
@@ -597,23 +713,23 @@ namespace ar
   void Application::register_button_handler() noexcept
   {
     // change state
-    if (gui_state_.page_state() != PageState::Register)
+    if (state_.page_state() != PageState::Register)
     {
-      gui_state_.active_page(PageState::Register);
+      state_.active_page(PageState::Register);
       return;
     }
 
     // empty field check
     if (username_.empty() || password_.empty() || confirm_password_.empty())
     {
-      gui_state_.active_overlay(OverlayState::EmptyField);
+      state_.active_overlay(OverlayState::EmptyField);
       return;
     }
 
     // check both password equality
     if (password_ != confirm_password_)
     {
-      gui_state_.active_overlay(OverlayState::PasswordDifferent);
+      state_.active_overlay(OverlayState::PasswordDifferent);
       return;
     }
 
@@ -621,22 +737,23 @@ namespace ar
     RegisterPayload payload{username_, password_};
     client_.connection().write(payload.serialize());
 
-    gui_state_.active_overlay(OverlayState::Loading);
+    state_.active_loading_overlay();
+    state_.expect_operation_state(OperationState::Register);
   }
 
   void Application::login_button_handler() noexcept
   {
     // change state
-    if (gui_state_.page_state() != PageState::Login)
+    if (state_.page_state() != PageState::Login)
     {
-      gui_state_.active_page(PageState::Login);
+      state_.active_page(PageState::Login);
       return;
     }
 
     // empty field check
     if (username_.empty() || password_.empty())
     {
-      gui_state_.active_overlay(OverlayState::EmptyField);
+      state_.active_overlay(OverlayState::EmptyField);
       return;
     }
 
@@ -644,23 +761,180 @@ namespace ar
     LoginPayload payload{.username = username_, .password = password_};
     client_.connection().write(payload.serialize());
 
-    gui_state_.active_overlay(OverlayState::Loading);
+    state_.active_loading_overlay();
+    state_.expect_operation_state(OperationState::Login);
   }
 
   void Application::send_file_button_handler() noexcept
   {
     dropped_file_path_.clear();
-    gui_state_.active_overlay(OverlayState::SendFile);
+    state_.active_overlay(OverlayState::SendFile);
   }
 
-  void Application::send_file() noexcept
+  void Application::send_file_handler() noexcept
   {
-    // TODO: Implement
+    // Escape from send file modal
+    state_.active_overlay(OverlayState::None);
+
+    auto& user = users_[selected_user_];
+    // Get the public key
+    {
+      std::unique_lock lock{send_file_data_mutex_};
+      send_file_datas_.emplace(user.id, dropped_file_path_);
+    }
+
+    if (!user.public_key.is_valid())
+    {
+      GetUserDetailsPayload user_details_payload{
+        .id = user.id
+      };
+      client_.connection().write(user_details_payload.serialize());
+
+      state_.expect_operation_state(OperationState::GetUserDetails);
+      state_.active_loading_overlay();
+      return;
+    }
+
+    // signal the thread to start working
+    send_file_cv_.notify_one();
+  }
+
+  void Application::login_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    state_.disable_loading_overlay();
+    // malformed request
+    if (state_.expected_operation_state() != OperationState::Login)
+    {
+      Logger::warn(fmt::format("got unexpected response"));
+      return;
+    }
+
+    state_.operation_state_complete();
+
+    if (!payload.response)
+    {
+      state_.active_overlay(OverlayState::LoginFailed);
+      return;
+    }
+
+    // serialize public key and send it to server
+    auto public_key = asymmetric_encryptor_.public_key();
+    auto public_key_bytes = ar::serialize(public_key);
+
+    StorePublicKeyPayload key_payload{
+      .public_key = std::move(public_key_bytes)
+    };
+
+    // set current user
+    // TODO: get self user detail from server
+    this_user_ = std::make_unique<UserClient>(true, std::numeric_limits<User::id_type>::max(), "me");
+    // start thread
+    send_file_thread_ = std::thread{&Application::send_file_thread, this};
+
+    client_.connection().write(key_payload.serialize());
+
+    state_.expect_operation_state(OperationState::StorePublicKey);
+    state_.active_loading_overlay(); // make it loading on login page
+  }
+
+  void Application::register_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    state_.disable_loading_overlay();
+
+    // malformed request
+    if (state_.expected_operation_state() != OperationState::Register)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    state_.operation_state_complete();
+
+    if (!payload.response)
+    {
+      state_.active_overlay(OverlayState::RegisterFailed);
+      return;
+    }
+
+    state_.active_page(PageState::Login);
+  }
+
+  void Application::send_file_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::SendFile)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+    state_.disable_loading_overlay();
+    state_.operation_state_complete();
+
+    if (!payload.response)
+    {
+      state_.active_overlay(OverlayState::SendFileFailed);
+      return;
+    }
+
+    state_.active_page(PageState::Dashboard);
+  }
+
+  void Application::get_user_details_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::GetUserDetails)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    Logger::error(fmt::format("error on getting user details: {}", payload.message.value()));
+    state_.operation_state_complete();
+    state_.disable_loading_overlay();
+    state_.active_overlay(OverlayState::InternalError);
+  }
+
+  void Application::get_user_online_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::GetUserOnline)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    Logger::error(fmt::format("error on getting user onlines: {}", payload.message.value()));
+    state_.operation_state_complete();
+    state_.disable_loading_overlay();
+    state_.active_overlay(OverlayState::InternalError);
+  }
+
+  void Application::store_public_key_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::StorePublicKey)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    state_.operation_state_complete();
+
+    // failed to store
+    if (!payload.response)
+    {
+      state_.disable_loading_overlay();
+      state_.active_overlay(OverlayState::InternalError);
+      return;
+    }
+
+    // Get user onlines
+    GetUserOnlinePayload user_online_payload{};
+    client_.connection().write(user_online_payload.serialize());
+
+    state_.active_loading_overlay(); // make it loading and still on loading page
+    state_.expect_operation_state(OperationState::GetUserOnline);
   }
 
   void Application::on_file_drop(std::string_view paths) noexcept
   {
-    if (gui_state_.overlay_state() != OverlayState::SendFile)
+    if (state_.overlay_state() != OverlayState::SendFile)
     {
       Logger::trace("trying to drop files when the state is not Send File yet");
       return;
@@ -671,49 +945,34 @@ namespace ar
 
   void Application::on_feedback_response(const FeedbackPayload& payload) noexcept
   {
-    std::this_thread::sleep_for(1s);
-    gui_state_.active_overlay(OverlayState::None);
-
     switch (payload.id)
     {
     case PayloadId::Login: {
-      // malformed request
-      if (gui_state_.page_state() != PageState::Login)
-        break;
-
-      if (!payload.response)
-      {
-        gui_state_.active_overlay(OverlayState::LoginFailed);
-        break;
-      }
-
-      gui_state_.active_page(PageState::Dashboard);
+      login_feedback_handler(payload);
       break;
     }
     case PayloadId::Register: {
-      // malformed request
-      if (gui_state_.page_state() != PageState::Register)
-        break;
-
-      if (!payload.response)
-      {
-        gui_state_.active_overlay(OverlayState::RegisterFailed);
-        break;
-      }
-
-      gui_state_.active_page(PageState::Login);
+      register_feedback_handler(payload);
       break;
     }
-    case PayloadId::UserCheck:
+    case PayloadId::SendFile: {
+      send_file_feedback_handler(payload);
       break;
-    case PayloadId::Unauthenticated:
+    }
+    case PayloadId::GetUserDetails: {
+      // GetUserDetails payload will only response Feedback when there is error happens
+      get_user_details_feedback_handler(payload);
       break;
-    case PayloadId::Authenticated:
+    }
+    case PayloadId::GetUserOnline: {
+      // GetUserOnline payload will only response Feedback when there is error happens
+      get_user_online_feedback_handler(payload);
       break;
-    case PayloadId::UserDetail:
+    }
+    case PayloadId::StorePublicKey: {
+      store_public_key_feedback_handler(payload);
       break;
-    case PayloadId::UserOnlineList:
-      break;
+    }
     }
 
     if constexpr (_DEBUG)
@@ -725,5 +984,167 @@ namespace ar
     }
   }
 
-  void Application::on_file_receive() noexcept {}
+  void Application::on_file_receive(const Message::Header& header, const SendFilePayload& payload) noexcept
+  {
+    // Decrypt key
+    auto decipher_key_result = asymmetric_encryptor_.decrypts(payload.symmetric_key);
+    if (!decipher_key_result.has_value())
+    {
+      Logger::error(fmt::format("failed to decrypt symmetric key: {}", decipher_key_result.error()));
+      return;
+    }
+    auto decipher_key_bytes = as_bytes<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
+    if (decipher_key_bytes.size() != KEY_BYTE)
+    {
+      Logger::error("decrypted key is malformed");
+      return;
+    }
+
+    // Decrypt files
+    Camellia::key_type key{decipher_key_bytes};
+    Camellia symmetric_encryptor{key};
+    auto decipher_file_result = symmetric_encryptor.decrypts(payload.files, payload.file_filler);
+    if (!decipher_file_result.has_value())
+    {
+      Logger::error(fmt::format("failed to decrypt incoming file: {}", decipher_file_result.error()));
+      return;
+    }
+    if (decipher_file_result->size() != payload.file_size)
+    {
+      Logger::error("decipher file has different size than the original file");
+      return;
+    }
+
+    // Create directory
+    auto dir = std::filesystem::current_path() / "files";
+    std::error_code ec;
+    std::filesystem::create_directory(dir, ec);
+
+    // Save file (overwrite)
+    auto dest_path = dir / payload.filename;
+    if (!save_bytes_as_file<true>(dest_path.string(), decipher_file_result.value()))
+    {
+      Logger::error("failed to save incoming file to disk");
+      return;
+    }
+
+    // Show to dashboard
+    {
+      std::unique_lock lock{file_mutex_};
+      auto [format, format_str] = get_file_format(payload.filename);
+      {
+        // get user opponent
+        std::unique_lock lock2{user_mutex_}; // FIX: use shared_mutex for user so it can be read by multiple thread
+
+        auto it = std::ranges::find_if(users_, [&](const UserClient& uc) { return uc.id == header.opponent_id; });
+        if (it == users_.end())
+        {
+          // WARN: it should be UB here
+          Logger::error("got files from ghost, scaryyyyyyyyyyyy");
+          return;
+        }
+
+        files_.emplace_back(format, payload.file_size, &*it, payload.filename, get_current_time());
+      }
+    }
+  }
+
+  void Application::on_user_login(const UserLoginPayload& payload) noexcept
+  {
+    std::unique_lock lock{user_mutex_};
+    // search if user already on database (offline)
+    auto offline_users = users_ | std::views::filter([](const UserClient& uc) { return !uc.is_online; });
+    if (offline_users.empty())
+    {
+      users_.emplace_back(true, payload.id, payload.username);
+      return;
+    }
+    // toggle is_online
+    auto it = std::ranges::find_if(offline_users, [&](const UserClient& uc) { return uc.id == payload.id; });
+    if (it == offline_users.end())
+    {
+      users_.emplace_back(true, payload.id, payload.username);
+      return;
+    }
+    it->is_online = true;
+  }
+
+  void Application::on_user_logout(const UserLogoutPayload& payload) noexcept
+  {
+    std::unique_lock lock{user_mutex_};
+    // std::erase_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
+    auto it = std::ranges::find_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
+    if (it == users_.end())
+    {
+      Logger::warn("got signal user logout, but the user doesn't exists on client database");
+      return;
+    }
+    // set to offline
+    it->is_online = false;
+  }
+
+  void Application::on_user_detail_response(const UserDetailPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::GetUserDetails)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    {
+      std::unique_lock lock{user_mutex_};
+      auto it = std::ranges::find_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
+      if (it == users_.end())
+      {
+        Logger::error(fmt::format("got user detail, but the user is not on the list: {}|{}",
+                                  payload.id, payload.username));
+
+        state_.operation_state_complete();
+        state_.disable_loading_overlay();
+        state_.active_overlay(OverlayState::InternalError);
+        return;
+      }
+
+      // deserialize public key
+      auto result = ar::deserialize(payload.public_key);
+      if (!result.has_value())
+      {
+        state_.operation_state_complete();
+        state_.disable_loading_overlay();
+        state_.active_overlay(OverlayState::InternalError);
+        return;
+      }
+
+      it->name = payload.username;
+      it->public_key = result.value();
+    }
+
+    state_.operation_state_complete();
+    state_.disable_loading_overlay();
+    state_.active_overlay(OverlayState::None);
+    // notify the send file thread to start working
+    if (!send_file_datas_.empty())
+      send_file_cv_.notify_one();
+  }
+
+  void Application::on_user_online_response(const UserOnlinePayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::GetUserOnline)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    {
+      std::unique_lock lock{user_mutex_};
+      for (const auto& user : payload.users)
+      {
+        users_.emplace_back(true, user.id, user.name);
+      }
+    }
+
+    state_.operation_state_complete();
+    state_.disable_loading_overlay();
+    state_.active_page(PageState::Dashboard);
+  }
 }

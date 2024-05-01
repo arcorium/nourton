@@ -77,17 +77,43 @@ namespace ar
 		return (result << 64) | lsb;
 	}
 
-
 	template <typename T, typename U>
 	constexpr std::span<T, sizeof(U) / sizeof(T)> as_span(U& data_) noexcept
 	{
 		return std::span<T, sizeof(U) / sizeof(T)>{reinterpret_cast<T*>(&data_), sizeof(U) / sizeof(T)};
 	}
 
+	template <typename T, typename U>
+	constexpr std::span<const T, sizeof(U) / sizeof(T)> as_span(const U& data_) noexcept
+	{
+		return std::span<const T, sizeof(U) / sizeof(T)>{reinterpret_cast<const T*>(&data_), sizeof(U) / sizeof(T)};
+	}
+
 	template <typename T>
 	constexpr std::span<u8> as_bytes(std::span<T> val, usize end_offset = 0) noexcept
 	{
-		return std::span<u8>{(u8*)val.data(), val.size_bytes() - end_offset};
+		return std::span<u8>{reinterpret_cast<u8*>(val.data()), val.size_bytes() - end_offset};
+	}
+
+	constexpr std::array<u8, 16> as_bytes(const u128& val) noexcept
+	{
+		usize size = val.backend().size();
+		auto limbs = val.backend().limbs();
+
+		using limb_type = boost::multiprecision::limb_type;
+
+		std::array<u8, 16> bytes{};
+		bytes.fill(0);
+
+		for (usize i = 0; i < size; ++i)
+		{
+			auto p = reinterpret_cast<limb_type*>(bytes.data() + i * sizeof(limb_type));
+			*p = *limbs;
+
+			++limbs;
+		}
+
+		return bytes;
 	}
 
 	constexpr std::span<u8> as_span(std::string_view val) noexcept
