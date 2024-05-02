@@ -9,6 +9,7 @@
 
 #include <util/asio.h>
 
+#include "core.h"
 #include "logger.h"
 #include "user.h"
 
@@ -29,9 +30,9 @@ namespace ar
 
   void Server::start() noexcept
   {
-    Logger::trace(fmt::format("server accepting connection from {}: {}",
-                              m_acceptor.local_endpoint().address().to_string(),
-                              m_acceptor.local_endpoint().port()));
+    Logger::info(fmt::format("server accepting connection from {}: {}",
+                             m_acceptor.local_endpoint().address().to_string(),
+                             m_acceptor.local_endpoint().port()));
 
     asio::co_spawn(m_strand, [this] { return connection_acceptor(); }, asio::detached);
 
@@ -70,7 +71,7 @@ namespace ar
       }
 
       // DEBUG
-      if constexpr (_DEBUG)
+      if constexpr (AR_DEBUG)
       {
         if (!user)
           Logger::warn(fmt::format(
@@ -101,7 +102,7 @@ namespace ar
 
       auto payload = msg.body_as<RegisterPayload>();
       bool result = register_message_handler(std::move(payload));
-      if constexpr (_DEBUG)
+      if constexpr (AR_DEBUG)
       {
         if (!result)
           Logger::info(
@@ -260,7 +261,7 @@ namespace ar
 
       auto& connections = m_user_connections[header->opponent_id];
 
-      if constexpr (_DEBUG)
+      if constexpr (AR_DEBUG)
       {
         // get the user opponent
         auto user = std::ranges::find_if(

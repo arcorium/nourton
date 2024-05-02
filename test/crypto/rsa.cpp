@@ -7,9 +7,11 @@
 
 #include "crypto/camellia.h"
 #include "crypto/dm_rsa.h"
+#include "crypto/rsa.h"
 
 #include "util/algorithm.h"
 #include "util/convert.h"
+#include "util/file.h"
 
 TEST(rsa, prime_key_generated)
 {
@@ -66,6 +68,38 @@ TEST(rsa, encrypt_bytes)
   auto decipher_bytes = ar::as_bytes<ar::RSA::block_type>(decipher.value(), filler);
 
   check_span_eq<u8, u8>(message_bytes, decipher_bytes);
+}
+
+TEST(rsa, encrypt_file)
+{
+  auto plain_result = ar::read_file_as_bytes("../../resource/image/docs.png");
+  ASSERT_TRUE(plain_result.has_value());
+
+  for (usize i = 0; i < 50; ++i)
+  {
+    ar::RSA rsa{};
+    auto [filler, cipher] = rsa.encrypts(plain_result.value());
+    auto cipher_bytes = ar::as_bytes<ar::RSA::block_enc_type>(cipher);
+    auto decipher = rsa.decrypts(cipher_bytes);
+    ASSERT_TRUE(decipher.has_value());
+    // resize
+    auto decipher_bytes = ar::as_bytes<ar::RSA::block_type>(decipher.value(), filler);
+    check_span_eq<u8, u8>(decipher_bytes, plain_result.value());
+  }
+}
+
+TEST(rsa, serialize_public_key)
+{
+  for (usize i = 0; i < 20; ++i)
+  {
+    ar::RSA rsa{};
+    auto public_key = rsa.public_key();
+    auto serialized = ar::serialize(public_key);
+    auto deserialized = ar::deserialize_rsa(serialized);
+    ASSERT_TRUE(deserialized.has_value());
+    ASSERT_EQ(deserialized->e, public_key.e);
+    ASSERT_EQ(deserialized->n, public_key.n);
+  }
 }
 
 TEST(dm_rsa, prime_key_inputted)
@@ -228,5 +262,21 @@ TEST(dm_rsa, encrypt_camellia_key)
 
     // check_span_eq<u8, u8>(original_key, decipher_key.value());
     check_span_eq<u8, u8>(original_key, decipher_key_bytes);
+  }
+}
+
+TEST(dm_rsa, serialize_public_key)
+{
+  for (usize i = 0; i < 20; ++i)
+  {
+    ar::DMRSA dm_rsa{};
+    auto public_key = dm_rsa.public_key();
+    auto serialized = ar::serialize(public_key);
+    auto deserialized = ar::deserialize(serialized);
+    ASSERT_TRUE(deserialized.has_value());
+    ASSERT_EQ(deserialized->e1_, public_key.e1_);
+    ASSERT_EQ(deserialized->e2_, public_key.e2_);
+    ASSERT_EQ(deserialized->n1_, public_key.n1_);
+    ASSERT_EQ(deserialized->n2_, public_key.n2_);
   }
 }

@@ -12,6 +12,8 @@
 #include "util/convert.h"
 #include "util.h"
 
+#include "util/file.h"
+
 TEST(camellia, sbox)
 {
   uint8_t sboxes[3][256];
@@ -117,4 +119,21 @@ TEST(camellia, random_generated_key)
   EXPECT_EQ(decipher2.size(), 80);
 
   check_span_eq<u8>(decipher, text_span);
+}
+
+TEST(camellia, encrypt_file)
+{
+  auto plain_result = ar::read_file_as_bytes("../../resource/image/docs.png");
+  ASSERT_TRUE(plain_result.has_value());
+
+  for (usize i = 0; i < 100; ++i)
+  {
+    ar::Camellia camellia{};
+
+    auto [filler, cipher] = camellia.encrypts(plain_result.value());
+    auto decipher = camellia.decrypts(cipher, filler);
+    ASSERT_TRUE(decipher.has_value());
+
+    check_span_eq<u8, u8>(plain_result.value(), decipher.value());
+  }
 }

@@ -23,7 +23,12 @@ namespace ar
   Client::Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint,
                  IEventHandler* event_handler) noexcept
     : event_handler_{event_handler}, executor_{std::move(executor)},
-      endpoint_{std::move(endpoint)}, connection_{executor_} {}
+      endpoint_{std::move(endpoint)}, connection_{executor_}
+  {
+    Logger::info(fmt::format("client connecting to {}: {}",
+                             endpoint_.address().to_string(),
+                             endpoint_.port()));
+  }
 
   Client::~Client() noexcept {}
 

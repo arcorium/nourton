@@ -193,11 +193,18 @@ namespace ar
   // 0 = filename
   // 1 = sender
   // 2 = timestamp
-  static void file_widget(const FileProperty& property, ResourceManager& resource_manager) noexcept
+  template <std::invocable CloseFn, std::invocable CardFn>
+  static void file_widget(const FileProperty& property, ResourceManager& resource_manager, CloseFn&& close_fn,
+                          CardFn&& card_fn) noexcept
   {
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 10.f);
-    if (ImGui::BeginChild(property.filename.data(), {0.f, 64.f}, ImGuiChildFlags_Border))
+
+    std::string_view filename = get_filename_with_format(property.fullpath);
+
+    if (ImGui::BeginChild(filename.data(), {0.f, 72.f}, ImGuiChildFlags_Border))
     {
+      const bool is_me = property.sender->name == "me"sv;
+
       ImageProperties image{};
       switch (property.format)
       {
@@ -217,11 +224,14 @@ namespace ar
         image = resource_manager.image("other.png").value();
         break;
       }
+
+      // Image
       ImGui::Image((ImTextureID)(intptr_t)image.id, {48.f, 48.f});
       auto image_size = ImGui::GetItemRectSize();
+      // Filename
       ImGui::SameLine(0.f, 10.f);
       ImGui::SetCursorPosY((image_size.y - 10.f) * 0.5f);
-      ImGui::TextUnformatted(property.filename.data());
+      ImGui::TextUnformatted(filename.data());
 
       auto font = resource_manager.font("FiraCodeNerdFont-SemiBold.ttf", 14.f);
       ImGui::PushFont(font);
@@ -232,23 +242,58 @@ namespace ar
       auto time_size = ImGui::CalcTextSize(time.data());
       auto& style = ImGui::GetStyle();
 
-      if (sender == "me"sv)
+      // Close label
+      if (!is_me)
       {
-        ImGui::PushStyleColor(ImGuiCol_Button, color_from_hex(0xd6894eff));
+        constexpr static std::string_view close_text = "X"sv;
+        static auto close_text_size = ImGui::CalcTextSize(close_text.data());
+        ImGui::SameLine(ImGui::GetWindowWidth() - close_text_size.x - style.WindowPadding.x - 14.f);
+        ImGui::SetCursorPosY(style.WindowPadding.y - 2.f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 20.f);
+        // Close button
+        if (ImGui::Button(fmt::format("X##{}33", filename).data(), ImVec2{20.f, 0.f}))
+        {
+          std::invoke(std::forward<CloseFn>(close_fn));
+        }
+
+        ImGui::PopStyleVar();
       }
+
+      if (is_me)
+        ImGui::PushStyleColor(ImGuiCol_Button, color_from_hex(0xd6894eff));
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_Button));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_Button));
 
+      // Sender label
       ImGui::SameLine(ImGui::GetWindowWidth() - text_size.x - time_size.x - style.WindowPadding.x * 4.f);
-      ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y - 4.f);
+      ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y + 4.f);
       ImGui::Button(sender.data());
-      ImGui::SameLine();
 
-      ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y - 4.f);
+      // Timestamp label
+      ImGui::SameLine();
+      ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y + 4.f);
       ImGui::Button(time.data());
 
-      ImGui::PopStyleColor(2 + (sender == "me"sv ? 1 : 0));
+      ImGui::PopStyleColor(2 + (is_me ? 1 : 0));
       ImGui::PopFont();
+
+      // Invisible Button
+      ImGui::SetNextItemAllowOverlap();
+      ImGui::SetCursorPos({0.f, 0.f});
+      auto size = ImVec2{
+        ImGui::GetWindowWidth() - style.WindowPadding.x,
+        ImGui::GetWindowHeight() - style.WindowPadding.y
+      };
+      if (ImGui::InvisibleButton(fmt::format("{}#btn", filename).data(), size))
+      {
+        if (!is_me)
+          std::invoke(std::forward<CardFn>(card_fn));
+      }
+
+      // if (is_hover)
+      // {
+      //   ImGui::PopStyleColor(3);
+      // }
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();

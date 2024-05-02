@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <mutex>
 
 #include "client.h"
@@ -22,7 +23,8 @@ namespace ar
   class Application : public IEventHandler
   {
   public:
-    Application(asio::io_context& ctx, Window window) noexcept;
+    Application(asio::io_context& ctx, Window window, std::string_view ip, u16 port,
+                std::string_view save_dir) noexcept;
     ~Application() noexcept;
 
     bool init() noexcept;
@@ -59,6 +61,9 @@ namespace ar
 
     void on_file_drop(std::string_view paths) noexcept;
 
+    void delete_file_on_dashboard(usize file_index) noexcept;
+    void open_file_on_dashboard(usize file_index) noexcept;
+
     // Callback, called by io thread
   public:
     void on_feedback_response(const FeedbackPayload& payload) noexcept override;
@@ -72,7 +77,7 @@ namespace ar
     struct SendFileOperationData
     {
       User::id_type user_id;
-      std::string filepath; // fullpath
+      std::string file_fullpath; // fullpath
     };
 
   private:
@@ -99,6 +104,7 @@ namespace ar
     // TODO: Make safe_object<T> to wrap both mutex with the actual data
     std::mutex file_mutex_;
     std::vector<FileProperty> files_;
+    std::vector<std::string_view> deleted_file_names_;
     std::mutex user_mutex_;
     // better to use list instead, because when the vector grows it will invalidate all files that have reference on the users
     // HACK: for now the vector will reserve big number (1024)
@@ -106,7 +112,9 @@ namespace ar
     std::unique_ptr<UserClient> this_user_;
 
     // Send File data
+    std::filesystem::path save_dir_;
     std::string dropped_file_path_;
+    std::vector<std::string> dropped_file_paths_;
     int selected_user_;
 
     Client client_;

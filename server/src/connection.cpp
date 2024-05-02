@@ -10,6 +10,7 @@
 
 #include <util/asio.h>
 
+#include "core.h"
 #include "handler.h"
 #include "logger.h"
 
@@ -17,15 +18,13 @@
 
 namespace ar
 {
-  Connection::Connection(asio::ip::tcp::socket &&socket, IMessageHandler *message_handler,
-                         IConnectionHandler *connection_handler) noexcept
+  Connection::Connection(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+                         IConnectionHandler* connection_handler) noexcept
     : message_handler_{message_handler}, connection_handler_{connection_handler}, id_{s_current_id.fetch_add(1)},
       user_{}, is_closing_{false},
-    // is_closing is false at the constructor due to the socket should be already connected
+      // is_closing is false at the constructor due to the socket should be already connected
       write_timer_{socket.get_executor(), std::chrono::steady_clock::time_point::max()},
-      socket_{std::forward<decltype(socket)>(socket)}
-  {
-  }
+      socket_{std::forward<decltype(socket)>(socket)} {}
 
   Connection::~Connection() noexcept
   {
@@ -33,7 +32,7 @@ namespace ar
     // close();
   }
 
-  Connection::Connection(Connection &&other) noexcept
+  Connection::Connection(Connection&& other) noexcept
     : message_handler_(other.message_handler_), connection_handler_(other.connection_handler_),
       id_(other.id_), user_(other.user_), is_closing_(other.is_closing_.exchange(true)),
       write_timer_(std::move(other.write_timer_)), write_message_queue_(std::move(other.write_message_queue_)),
@@ -45,7 +44,7 @@ namespace ar
     other.message_handler_ = nullptr;
   }
 
-  Connection &Connection::operator=(Connection &&other) noexcept
+  Connection& Connection::operator=(Connection&& other) noexcept
   {
     if (this == &other)
       return *this;
@@ -58,7 +57,6 @@ namespace ar
     write_message_queue_ = std::move(other.write_message_queue_);
     socket_ = std::move(other.socket_);
 
-
     other.id_ = std::numeric_limits<id_type>::max();
     other.user_ = nullptr;
     other.connection_handler_ = nullptr;
@@ -66,8 +64,8 @@ namespace ar
     return *this;
   }
 
-  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket &&socket, IMessageHandler *message_handler,
-                                                      IConnectionHandler *connection_handler) noexcept
+  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+                                                      IConnectionHandler* connection_handler) noexcept
   {
     return std::make_shared<Connection>(std::forward<decltype(socket)>(socket), message_handler, connection_handler);
   }
@@ -91,9 +89,10 @@ namespace ar
     Logger::info(fmt::format("Connection-{} closed!", id_));
   }
 
-  void Connection::write(Message &&msg) noexcept
+  void Connection::write(Message&& msg) noexcept
   {
-    if (!is_open()) {
+    if (!is_open())
+    {
       Logger::warn(fmt::format("Could not send data to connection-{} because the socket already closed", id_));
       return;
     }
@@ -104,7 +103,8 @@ namespace ar
     asio::error_code ec;
     write_timer_.cancel(ec);
 
-    if constexpr (_DEBUG) {
+    if constexpr (AR_DEBUG)
+    {
       if (ec)
         Logger::warn(fmt::format("failed to cancel timer: {}", ec.message()));
     }
@@ -120,7 +120,7 @@ namespace ar
     return user_;
   }
 
-  void Connection::user(User *user) noexcept
+  void Connection::user(User* user) noexcept
   {
     user_ = user;
   }
@@ -129,17 +129,20 @@ namespace ar
   {
     Logger::trace(fmt::format("Connection-{} waiting new message", id_));
     Message message{};
-    while (is_open()) {
+    while (is_open())
+    {
       {
         auto [ec, n] = co_await asio::async_read(socket_, asio::buffer(message.header),
                                                  asio::transfer_exactly(Message::header_size), ar::await_with_error());
-        if (ec) {
+        if (ec)
+        {
           if (is_connection_lost(ec))
             break;
           Logger::warn(fmt::format("Connection-{} error on reading header: {}", id_, ec.message()));
           continue;
         }
-        if (n != Message::header_size) {
+        if (n != Message::header_size)
+        {
           Logger::warn(fmt::format("Connection-{} is reading header with different size", id_));
           continue;
         }
@@ -150,13 +153,15 @@ namespace ar
         auto [ec, n] = co_await asio::async_read(socket_, asio::buffer(message.body),
                                                  asio::transfer_exactly(header->body_size),
                                                  ar::await_with_error());
-        if (ec) {
+        if (ec)
+        {
           if (is_connection_lost(ec))
             break;
           Logger::warn(fmt::format("Connection-{} error on reading body: {}", id_, ec.message()));
           continue;
         }
-        if (n != header->body_size) {
+        if (n != header->body_size)
+        {
           Logger::warn(fmt::format("Connection-{} is reading body with different size", id_));
           continue;
         }
@@ -174,11 +179,14 @@ namespace ar
   asio::awaitable<void> Connection::writer() noexcept
   {
     Logger::trace(fmt::format("Connection-{} starting writer handler", id_));
-    while (is_open()) {
-      if (write_message_queue_.empty()) {
+    while (is_open())
+    {
+      if (write_message_queue_.empty())
+      {
         auto [ec] = co_await write_timer_.async_wait(ar::await_with_error());
         // NOTE: when the error is not cancel
-        if (ec != asio::error::operation_aborted) {
+        if (ec != asio::error::operation_aborted)
+        {
           Logger::warn(fmt::format("Error while waiting timer: {}", ec.message()));
           break;
         }
@@ -193,13 +201,15 @@ namespace ar
       buffers.emplace_back(asio::buffer(msg.body));
       auto expected_bytes = msg.size();
       auto [ec, n] = co_await asio::async_write(socket_, buffers, ar::await_with_error());
-      if (ec) {
+      if (ec)
+      {
         if (is_connection_lost(ec))
           break;
         Logger::warn(fmt::format("Connection-{} error on sending message: {}", id_, ec.message()));
         continue;
       }
-      if (n != expected_bytes) {
+      if (n != expected_bytes)
+      {
         Logger::warn(fmt::format("Connection-{} is sending message with different size: {}", id_, n));
         continue;
       }

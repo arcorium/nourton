@@ -15,6 +15,8 @@
 
 #include <fmt/format.h>
 
+#include "core.h"
+
 #include "util/asio.h"
 #include "util/make.h"
 #include "message/payload.h"
@@ -112,7 +114,7 @@ namespace ar
     write_message_queue_.push(std::forward<Message>(msg));
     asio::error_code ec;
     write_timer_.cancel_one(ec);
-    if constexpr (_DEBUG)
+    if constexpr (AR_DEBUG)
     {
       if (ec)
         Logger::warn(fmt::format("failed to cancel timer: {}", ec.message()));

@@ -38,7 +38,8 @@ namespace ar
   FileFormat format;
   usize size; // in byte
   UserClient* sender; // sender == nullptr, means the sender is itself
-  std::string filename;
+  // std::string filename;
+  std::string fullpath;
   std::string timestamp;
  };
 

@@ -1,4 +1,5 @@
 #find_package(range-v3 REQUIRED)
+find_package(argparse REQUIRED)
 
 add_executable(nourton-server
 	src/main.cpp
@@ -10,7 +11,4 @@ add_executable(nourton-server
 	src/connection.cpp
 )
 
-target_include_directories(nourton-server PRIVATE ../common)
-
-target_link_libraries(nourton-server PUBLIC nourton-common
-)
+target_link_libraries(nourton-server PRIVATE nourton-common argparse::argparse)

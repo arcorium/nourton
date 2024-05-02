@@ -3,9 +3,12 @@
 #include <vector>
 #include <fstream>
 #include <span>
+#include <filesystem>
 
 #include "make.h"
 #include "types.h"
+
+#include <fmt/format.h>
 
 namespace ar
 {
@@ -48,5 +51,19 @@ namespace ar
 		file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 		file.close();
 		return true;
+	}
+
+	static bool delete_file(std::string_view fullpath) noexcept
+	{
+		std::error_code ec;
+		std::filesystem::remove_all(fullpath, ec);
+		return !ec;
+	}
+
+	template <bool Block = true>
+	static void execute_file(std::string_view fullpath) noexcept
+	{
+		auto str = fmt::format("\"{}\"", fullpath);
+		auto res = std::system(str.data());
 	}
 }

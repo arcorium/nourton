@@ -1,7 +1,5 @@
 #include "application.h"
 
-#include <filesystem>
-
 #include <magic_enum.hpp>
 
 #include <glad/glad.h>
@@ -21,20 +19,21 @@
 #include "awesome_brand.h"
 #include "widget.h"
 
-#include "util/imgui.h"
 #include <user.h>
 
 #include <fmt/ostream.h>
 
 #include <tinyfiledialogs.h>
 
+#include "core.h"
 #include "crypto/camellia.h"
 #include "crypto/dm_rsa.h"
-
 #include "util/algorithm.h"
 #include "util/convert.h"
 #include "util/file.h"
 #include "util/time.h"
+#include "util/tinyfd.h"
+#include "util/imgui.h"
 
 namespace ar
 {
@@ -42,14 +41,19 @@ namespace ar
 
   static bool is_send_file_modal_open = false;
 
-  Application::Application(asio::io_context& ctx, Window window) noexcept
+  Application::Application(asio::io_context& ctx, Window window, std::string_view ip, u16 port,
+                           std::string_view save_dir) noexcept
     : is_running_{false}, context_{ctx}, state_{PageState::Login}, window_{std::move(window)},
-      asymmetric_encryptor_{}, client_{ctx.get_executor(), asio::ip::make_address_v4("127.0.0.1"), 1231, this}
+      save_dir_{save_dir}, selected_user_{-1}, client_{ctx.get_executor(), asio::ip::make_address_v4(ip), port, this}
   {
     users_.reserve(1024);
     username_.reserve(255);
     password_.reserve(255);
     confirm_password_.reserve(255);
+
+    // create directory for saved files
+    std::error_code ec;
+    std::filesystem::create_directory(save_dir_, ec);
   }
 
   Application::~Application() noexcept
@@ -142,6 +146,14 @@ namespace ar
       state_.disable_loading_overlay();
       state_.active_overlay(OverlayState::ClientDisconnected);
     }
+
+    // delete files
+    {
+      std::unique_lock lock{file_mutex_};
+      for (const auto filename : deleted_file_names_)
+        std::erase_if(files_, [&](const FileProperty& prop) { return prop.fullpath == filename; });
+      deleted_file_names_.clear();
+    }
   }
 
   void Application::start() noexcept
@@ -219,7 +231,7 @@ namespace ar
       auto data = std::move(send_file_datas_.front());
       send_file_datas_.pop();
 
-      std::string_view filepath = data.filepath;
+      std::string_view filepath = data.file_fullpath;
       std::string_view filename = get_filename_with_format(filepath);
 
       UserClient* user{};
@@ -292,7 +304,7 @@ namespace ar
 
       {
         std::unique_lock lock{file_mutex_};
-        files_.emplace_back(format, result->size(), this_user_.get(), std::string{filename},
+        files_.emplace_back(format, result->size(), this_user_.get(), std::move(data.file_fullpath),
                             std::move(payload.timestamp));
       }
     }
@@ -523,9 +535,13 @@ namespace ar
                           },
                           ImGuiChildFlags_Border))
       {
-        std::ranges::for_each(files_, [this](const FileProperty& file) {
-          file_widget(file, resource_manager_);
-        });
+        std::ranges::for_each(files_ | std::views::enumerate,
+                              [this](const std::tuple<usize, const FileProperty&>& file) {
+                                const auto& fl = std::get<1>(file);
+                                file_widget(fl, resource_manager_,
+                                            std::bind(&Application::delete_file_on_dashboard, this, std::get<0>(file)),
+                                            std::bind(&Application::open_file_on_dashboard, this, std::get<0>(file)));
+                              });
       }
       gui::EndChild();
       gui::SetCursorPosY(viewport->WorkSize.y - style.WindowPadding.y - 30.f);
@@ -831,6 +847,16 @@ namespace ar
     // start thread
     send_file_thread_ = std::thread{&Application::send_file_thread, this};
 
+    auto* ucc = new UserClient{true, 123, "mirna"};
+    // TODO: Delete this, it is for debug purpose
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 1.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, ucc, "File 2.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 3.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 4.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 5.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
+    //                     "File File File File File File File File File 6.png", get_current_time());
+
     client_.connection().write(key_payload.serialize());
 
     state_.expect_operation_state(OperationState::StorePublicKey);
@@ -943,6 +969,31 @@ namespace ar
     dropped_file_path_ = std::string{paths};
   }
 
+  void Application::delete_file_on_dashboard(usize file_index) noexcept
+  {
+    std::unique_lock lock{file_mutex_};
+    auto& file = files_[file_index];
+
+    if (!delete_file(file.fullpath))
+    {
+      Logger::warn(fmt::format("failed to delete file: {}", file.fullpath));
+      return;
+    }
+    Logger::info(fmt::format("file {} deleted successfully", file.fullpath));
+
+    // should not modify files in here, because it is still used
+    deleted_file_names_.emplace_back(file.fullpath);
+  }
+
+  void Application::open_file_on_dashboard(usize file_index) noexcept
+  {
+    std::unique_lock lock{file_mutex_};
+    auto& file = files_[file_index];
+    Logger::trace(fmt::format("open file: {}", file.fullpath));
+
+    execute_file(file.fullpath);
+  }
+
   void Application::on_feedback_response(const FeedbackPayload& payload) noexcept
   {
     switch (payload.id)
@@ -975,7 +1026,7 @@ namespace ar
     }
     }
 
-    if constexpr (_DEBUG)
+    if constexpr (AR_DEBUG)
     {
       Logger::info(fmt::format("Feedback Repsonse: {}", payload.response,
                                magic_enum::enum_name(payload.id)));
@@ -1015,13 +1066,8 @@ namespace ar
       return;
     }
 
-    // Create directory
-    auto dir = std::filesystem::current_path() / "files";
-    std::error_code ec;
-    std::filesystem::create_directory(dir, ec);
-
     // Save file (overwrite)
-    auto dest_path = dir / payload.filename;
+    auto dest_path = save_dir_ / payload.filename;
     if (!save_bytes_as_file<true>(dest_path.string(), decipher_file_result.value()))
     {
       Logger::error("failed to save incoming file to disk");
@@ -1044,7 +1090,7 @@ namespace ar
           return;
         }
 
-        files_.emplace_back(format, payload.file_size, &*it, payload.filename, get_current_time());
+        files_.emplace_back(format, payload.file_size, &*it, dest_path.string(), get_current_time());
       }
     }
   }
