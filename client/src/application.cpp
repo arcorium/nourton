@@ -1,8 +1,8 @@
 #include "application.h"
 
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <fmt/ostream.h>
-#include <glad/glad.h>
 #include <tinyfiledialogs.h>
 #include <user.h>
 
@@ -101,34 +101,16 @@ namespace ar
     style.TabRounding = 5.f;
     style.FrameRounding = 5.f;
 
-    // io
-    auto& io = gui::GetIO();
-
     ImFontConfig config{};
     config.MergeMode = true;
     config.PixelSnapH = true;
     config.GlyphMinAdvanceX = 16.f * 2.f / 3.f;
     static constexpr ImWchar icon_ranges[]{ICON_MIN_FA, ICON_MAX_FA, 0};
 
-    ImFontConfig main_config{};
-    config.MergeMode = true;
-    config.SizePixels = 12.f;
-
-    // add_fonts(io, "../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 24.f);
-    io.Fonts->AddFontFromFileTTF("../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 24.f,
-                                 nullptr);
-    io.Fonts->AddFontFromFileTTF(FONT_ICON_FILE_NAME_FAS("../../resource/font/"), 16.f, &config,
-                                 icon_ranges);
-    io.Fonts->AddFontFromFileTTF("../../resource/font/fa-brands-400.ttf", 16.f, &config,
-                                 icon_ranges);
-    // add_fonts(io,
-    // "../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 6.f, 8.f, 12.f);
-    // add_fonts(io,
-    // "../../resource/font/Bahila.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
-    // add_fonts(io,
-    // "../../resource/font/MusticaPro.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
-    // add_fonts(io,
-    // "../../resource/font/Linford.ttf", 12.f, 14.f, 24.f, 42.f, 72.f);
+    resource_manager_.load_font("FiraCodeNerdFont-SemiBold.ttf", 24.f);
+    resource_manager_.load_font(ICON_FONT_FAS, &config, icon_ranges, 16.f);
+    resource_manager_.load_font(ICON_FONT_FAR, &config, icon_ranges, 16.f);
+    resource_manager_.load_font(ICON_FONT_FAB, &config, icon_ranges, 16.f);
     if (!resource_manager_.load_font("FiraCodeNerdFont-SemiBold.ttf", 6.f, 8.f, 12.f, 14.f, 16.f))
       Logger::warn("Failed on reading fonts FiraCodeNerdFont-SemiBold.ttf");
 
