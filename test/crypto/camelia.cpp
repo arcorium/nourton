@@ -1,17 +1,14 @@
 
-#include <algorithm>
-
 #include <fmt/core.h>
-#include <fmt/std.h>
 #include <fmt/ranges.h>
-
+#include <fmt/std.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include "crypto/camellia.h"
-
-#include "util/convert.h"
 #include "util.h"
-
+#include "util/convert.h"
 #include "util/file.h"
 
 TEST(camellia, sbox)
@@ -77,7 +74,7 @@ TEST(camellia, camellia)
   check_span_eq<const u8>(keys, orig_spans);
 
   auto& camellia = a.value();
-  auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv; // 74
+  auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv;  // 74
   auto text_span = ar::as_span(text);
   EXPECT_EQ(text_span.size(), text.size());
 
@@ -104,7 +101,7 @@ TEST(camellia, random_generated_key)
   check_span_ne<const u8, u8>(a.key(), zeroeth_key);
 
   auto& camellia = a;
-  auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv; // 74
+  auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv;  // 74
   auto text_span = ar::as_span(text);
   EXPECT_EQ(text_span.size(), text.size());
 

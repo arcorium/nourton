@@ -1,19 +1,16 @@
 #include "server.h"
 
-#include <asio/bind_executor.hpp>
 #include <fmt/format.h>
-
-#include <magic_enum.hpp>
-
-#include <asio/placeholders.hpp>
-
 #include <util/asio.h>
+
+#include <asio/bind_executor.hpp>
+#include <asio/placeholders.hpp>
+#include <magic_enum.hpp>
 
 #include "core.h"
 #include "logger.h"
-#include "user.h"
-
 #include "message/payload.h"
+#include "user.h"
 
 namespace ar
 {
@@ -21,20 +18,25 @@ namespace ar
 
   Server::Server(asio::any_io_executor executor, const asio::ip::address& address,
                  asio::ip::port_type port)
-    : Server{std::move(executor), asio::ip::tcp::endpoint{address, port}} {}
+      : Server(std::move(executor), asio::ip::tcp::endpoint{address, port})
+  {
+  }
 
-  Server::Server(asio::any_io_executor executor,
-                 const asio::ip::tcp::endpoint& endpoint)
-    : m_executor{std::move(executor)}, m_strand{m_executor},
-      m_acceptor{m_executor, endpoint}, m_user_id_generator{1} {}
+  Server::Server(asio::any_io_executor executor, const asio::ip::tcp::endpoint& endpoint)
+      : executor_{std::move(executor)},
+        strand_{executor_},
+        acceptor_{executor_, endpoint},
+        user_id_generator_{1}
+  {
+  }
 
   void Server::start() noexcept
   {
     Logger::info(fmt::format("server accepting connection from {}: {}",
-                             m_acceptor.local_endpoint().address().to_string(),
-                             m_acceptor.local_endpoint().port()));
+                             acceptor_.local_endpoint().address().to_string(),
+                             acceptor_.local_endpoint().port()));
 
-    asio::co_spawn(m_strand, [this] { return connection_acceptor(); }, asio::detached);
+    asio::co_spawn(strand_, [this] { return connection_acceptor(); }, asio::detached);
 
     // m_acceptor.async_accept(asio::bind_executor(
     //   m_strand, std::bind(&Server::connection_handler, this,
@@ -52,9 +54,9 @@ namespace ar
       if (conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::Login,
-          .response = false,
-          .message = std::string{AUTHENTICATED_MESSAGE},
+            .id = PayloadId::Login,
+            .response = false,
+            .message = std::string{AUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -74,13 +76,11 @@ namespace ar
       if constexpr (AR_DEBUG)
       {
         if (!user)
-          Logger::warn(fmt::format(
-            "connection-{} failed to authenticate with username: {}", conn.id(),
-            payload.username));
+          Logger::warn(fmt::format("connection-{} failed to authenticate with username: {}",
+                                   conn.id(), payload.username));
         else
-          Logger::info(fmt::format(
-            "connection-{} logged in successfully with username: {}", conn.id(),
-            payload.username));
+          Logger::info(fmt::format("connection-{} logged in successfully with username: {}",
+                                   conn.id(), payload.username));
       }
 
       conn.user(user);
@@ -92,9 +92,9 @@ namespace ar
       if (conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::Register,
-          .response = false,
-          .message = std::string{AUTHENTICATED_MESSAGE},
+            .id = PayloadId::Register,
+            .response = false,
+            .message = std::string{AUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -105,13 +105,11 @@ namespace ar
       if constexpr (AR_DEBUG)
       {
         if (!result)
-          Logger::info(
-            fmt::format("connection-{} failed on registering with username: {}",
-                        conn.id(), payload.username));
+          Logger::info(fmt::format("connection-{} failed on registering with username: {}",
+                                   conn.id(), payload.username));
         else
-          Logger::info(fmt::format(
-            "connection-{} registered successfully with username: {}",
-            conn.id(), payload.username));
+          Logger::info(fmt::format("connection-{} registered successfully with username: {}",
+                                   conn.id(), payload.username));
       }
       FeedbackPayload resp{PayloadId::Register, result, std::nullopt};
       conn.write(resp.serialize());
@@ -122,28 +120,27 @@ namespace ar
       if (!conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::StorePublicKey,
-          .response = false,
-          .message = std::string{UNAUTHENTICATED_MESSAGE},
+            .id = PayloadId::StorePublicKey,
+            .response = false,
+            .message = std::string{UNAUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         break;
       }
 
       auto payload = msg.body_as<StorePublicKeyPayload>();
-      auto it = std::ranges::find_if(m_users,
-                                     [&](const std::unique_ptr<User>& user) {
-                                       return user->id == conn.user()->id;
-                                     });
+      auto it = std::ranges::find_if(
+          users_, [&](const std::unique_ptr<User>& user) { return user->id == conn.user()->id; });
 
       FeedbackPayload resp_payload;
-      if (it == m_users.end())
+      if (it == users_.end())
       {
         // user not found
-        Logger::error(fmt::format("connection-{} trying to store public key to user that doesn't exists", conn.id()));
+        Logger::error(fmt::format(
+            "connection-{} trying to store public key to user that doesn't exists", conn.id()));
         resp_payload = FeedbackPayload{
-          .id = PayloadId::StorePublicKey,
-          .response = false,
+            .id = PayloadId::StorePublicKey,
+            .response = false,
         };
       }
       else
@@ -152,8 +149,8 @@ namespace ar
         it->get()->public_key = std::move(payload.public_key);
 
         resp_payload = FeedbackPayload{
-          .id = PayloadId::StorePublicKey,
-          .response = true,
+            .id = PayloadId::StorePublicKey,
+            .response = true,
         };
       }
 
@@ -165,9 +162,9 @@ namespace ar
       if (!conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::GetUserOnline,
-          .response = false,
-          .message = std::string{UNAUTHENTICATED_MESSAGE},
+            .id = PayloadId::GetUserOnline,
+            .response = false,
+            .message = std::string{UNAUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         break;
@@ -176,16 +173,14 @@ namespace ar
       // filter online users
       std::vector<UserResponse> users;
       // users.reserve(m_users.size() - 1);
-      for (const auto& con : m_connections)
+      for (const auto& con : connections_)
       {
         if (!con->user() || con->user()->id == conn.user()->id)
           continue;
-        users.emplace_back(con->user()->id, con->user()->name); // make sure password is not sent
+        users.emplace_back(con->user()->id, con->user()->name);  // make sure password is not sent
       }
 
-      UserOnlinePayload payload{
-        .users = std::move(users)
-      };
+      UserOnlinePayload payload{.users = std::move(users)};
 
       conn.write(payload.serialize());
       break;
@@ -195,9 +190,9 @@ namespace ar
       if (!conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::GetUserDetails,
-          .response = false,
-          .message = std::string{UNAUTHENTICATED_MESSAGE},
+            .id = PayloadId::GetUserDetails,
+            .response = false,
+            .message = std::string{UNAUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         break;
@@ -205,28 +200,25 @@ namespace ar
 
       auto payload = msg.body_as<GetUserDetailsPayload>();
       // get the user
-      auto it = std::ranges::find_if(m_users, [&](const std::unique_ptr<User>& user) {
-        return user->id == payload.id;
-      });
+      auto it = std::ranges::find_if(
+          users_, [&](const std::unique_ptr<User>& user) { return user->id == payload.id; });
 
       UserDetailPayload resp_payload;
-      if (it == m_users.end())
+      if (it == users_.end())
       {
-        Logger::warn(fmt::format("connection-{} trying to get user-{} details that doesn't exists", conn.id(),
-                                 payload.id));
+        Logger::warn(fmt::format("connection-{} trying to get user-{} details that doesn't exists",
+                                 conn.id(), payload.id));
         // bad payload
         resp_payload = UserDetailPayload{
-          .id = 0,
-          .username = "",
+            .id = 0,
+            .username = "",
         };
       }
       else
       {
-        resp_payload = UserDetailPayload{
-          .id = it->get()->id,
-          .username = it->get()->name,
-          .public_key = it->get()->public_key
-        };
+        resp_payload = UserDetailPayload{.id = it->get()->id,
+                                         .username = it->get()->name,
+                                         .public_key = it->get()->public_key};
       }
 
       conn.write(resp_payload.serialize());
@@ -238,9 +230,9 @@ namespace ar
       if (!conn.is_authenticated())
       {
         FeedbackPayload resp_payload{
-          .id = PayloadId::SendFile,
-          .response = false,
-          .message = std::string{UNAUTHENTICATED_MESSAGE},
+            .id = PayloadId::SendFile,
+            .response = false,
+            .message = std::string{UNAUTHENTICATED_MESSAGE},
         };
         conn.write(resp_payload.serialize());
         return;
@@ -248,29 +240,26 @@ namespace ar
 
       auto payload = msg.body_as<SendFilePayload>();
       // check if user is online
-      if (!m_user_connections.contains(header->opponent_id))
+      if (!user_connections_.contains(header->opponent_id))
       {
-        FeedbackPayload resp_payload{
-          .id = PayloadId::SendFile,
-          .response = false,
-          .message = "user doesn't online"
-        };
+        FeedbackPayload resp_payload{.id = PayloadId::SendFile,
+                                     .response = false,
+                                     .message = "user doesn't online"};
         conn.write(resp_payload.serialize());
         return;
       }
 
-      auto& connections = m_user_connections[header->opponent_id];
+      auto& connections = user_connections_[header->opponent_id];
 
       if constexpr (AR_DEBUG)
       {
         // get the user opponent
-        auto user = std::ranges::find_if(
-          m_users, [&header](const std::unique_ptr<User>& usr) {
-            return usr->id == header->opponent_id;
-          });
+        auto user = std::ranges::find_if(users_, [&header](const std::unique_ptr<User>& usr) {
+          return usr->id == header->opponent_id;
+        });
 
-        Logger::info(fmt::format("user-{} sending files to user-{}",
-                                 conn.user()->name, user->get()->name));
+        Logger::info(
+            fmt::format("user-{} sending files to user-{}", conn.user()->name, user->get()->name));
       }
 
       // Send to all clients connected to specific user
@@ -280,13 +269,13 @@ namespace ar
         auto serialized = payload.serialize(conn.user()->id);
 
         const auto con = std::ranges::find_if(
-          m_connections, [=](const std::weak_ptr<Connection> conn) {
-            return conn.lock()->id() == connId;
-          });
+            connections_,
+            [=](const std::weak_ptr<Connection> conn) { return conn.lock()->id() == connId; });
 
-        if (con == m_connections.end())
+        if (con == connections_.end())
         {
-          Logger::warn(fmt::format("user connections has id that not belongs to any client: {}", connId));
+          Logger::warn(
+              fmt::format("user connections has id that not belongs to any client: {}", connId));
           continue;
         }
 
@@ -294,8 +283,8 @@ namespace ar
       }
 
       FeedbackPayload resp_payload{
-        .id = PayloadId::SendFile,
-        .response = true,
+          .id = PayloadId::SendFile,
+          .response = true,
       };
       conn.write(resp_payload.serialize());
       break;
@@ -315,13 +304,13 @@ namespace ar
     {
       // remove from user connections map
       auto user_id = conn.user()->id;
-      auto& connections = m_user_connections[user_id];
+      auto& connections = user_connections_[user_id];
       std::erase(connections, conn.id());
 
       // remove from map when the user no longer has connection
       if (connections.empty())
       {
-        m_user_connections.erase(user_id);
+        user_connections_.erase(user_id);
         // send signal UserLogout payload except for current user
         UserLogoutPayload payload{user_id};
         broadcast(payload.serialize(), user_id);
@@ -329,28 +318,26 @@ namespace ar
     }
 
     // delete client connection
-    std::erase_if(m_connections,
-                  [rconn = &conn](const std::weak_ptr<Connection>& conn) {
-                    return rconn->id() == conn.lock()->id();
-                  });
+    std::erase_if(connections_, [rconn = &conn](const std::weak_ptr<Connection>& conn) {
+      return rconn->id() == conn.lock()->id();
+    });
   }
 
   asio::awaitable<void> Server::connection_acceptor() noexcept
   {
     while (true)
     {
-      auto [ec, socket] = co_await m_acceptor.async_accept(ar::await_with_error());
+      auto [ec, socket] = co_await acceptor_.async_accept(ar::await_with_error());
       if (ec)
       {
         Logger::warn(fmt::format("error on accepting connection: {}", ec.message()));
         break;
       }
 
-      auto conn = Connection::make_shared(
-        std::forward<asio::ip::tcp::socket>(socket), this);
+      auto conn = Connection::make_shared(std::forward<asio::ip::tcp::socket>(socket), this);
       Logger::info(fmt::format("new connection with id: {}", conn->id()));
       conn->start();
-      m_connections.push_back(std::move(conn));
+      connections_.push_back(std::move(conn));
     }
   }
 
@@ -364,31 +351,27 @@ namespace ar
       return;
     }
 
-    auto conn = Connection::make_shared(
-      std::forward<asio::ip::tcp::socket>(socket), this, this);
+    auto conn = Connection::make_shared(std::forward<asio::ip::tcp::socket>(socket), this, this);
     Logger::info(fmt::format("new connection with id: {}", conn->id()));
     conn->start();
-    m_connections.push_back(std::move(conn));
+    connections_.push_back(std::move(conn));
     start();
   }
 
-  User* Server::login_message_handler(Connection& conn,
-                                      const LoginPayload& payload) noexcept
+  User* Server::login_message_handler(Connection& conn, const LoginPayload& payload) noexcept
   {
     const auto user = std::ranges::find_if(
-      m_users,
-      [username = std::string_view{payload.username}](
-      const std::unique_ptr<User>& usr) {
-        return username == usr->name;
-      });
+        users_, [username = std::string_view{payload.username}](const std::unique_ptr<User>& usr) {
+          return username == usr->name;
+        });
 
-    if (user == m_users.end())
+    if (user == users_.end())
       return nullptr;
 
     if (user->get()->password != payload.password)
       return nullptr;
 
-    auto& connections = m_user_connections[user->get()->id];
+    auto& connections = user_connections_[user->get()->id];
     connections.emplace_back(conn.id());
     return user->get();
   }
@@ -396,18 +379,16 @@ namespace ar
   bool Server::register_message_handler(RegisterPayload&& payload) noexcept
   {
     const auto user = std::ranges::find_if(
-      m_users,
-      [username = std::string_view{payload.username}](
-      const std::unique_ptr<User>& usr) {
-        return username == usr->name;
-      });
+        users_, [username = std::string_view{payload.username}](const std::unique_ptr<User>& usr) {
+          return username == usr->name;
+        });
 
     // user with username already exists
-    if (user != m_users.end())
+    if (user != users_.end())
       return false;
-    m_users.emplace_back(std::make_unique<User>(
-      m_user_id_generator.gen(), std::move(payload.username),
-      std::move(payload.password), std::vector<u8>{}));
+    users_.emplace_back(std::make_unique<User>(user_id_generator_.gen(),
+                                                std::move(payload.username),
+                                                std::move(payload.password), std::vector<u8>{}));
     return true;
   }
 
@@ -415,7 +396,7 @@ namespace ar
   {
     Logger::trace(fmt::format("Broadcasting message except for client {}", except));
 
-    for (const auto& conn : m_connections)
+    for (const auto& conn : connections_)
     {
       // ignore unauthenticated connection and excluded user id
       if (!conn->user() || conn->user()->id == except)
@@ -426,4 +407,4 @@ namespace ar
       conn->write(std::move(msg_copy));
     }
   }
-} // namespace ar
+}  // namespace ar

@@ -1,31 +1,30 @@
-//#define ASIO_NO_DEPRECATED
+// #define ASIO_NO_DEPRECATED
+#include <GLFW/glfw3.h>
+
+#include <argparse/argparse.hpp>
 #include <asio.hpp>
 #include <filesystem>
 
-#include <GLFW/glfw3.h>
-
 #include "application.h"
-
-#include <argparse/argparse.hpp>
-
-#include "logger.h"
 #include "core.h"
+#include "logger.h"
 
 void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
 {
+  // clang-format off
   program.add_argument("-i", "--ip")
-         .help("ip of remote server")
-         .default_value("127.0.0.1");
-  // .required();
+      .help("ip of remote server")
+      .default_value("127.0.0.1");
   program.add_argument("-p", "--port")
-         .help("port of remove server")
-         .scan<'u', u16>()
-         .default_value(1291_u16);
+      .help("port of remove server")
+      .scan<'u', u16>()
+      .default_value(1291_u16);
   program.add_argument("-d", "--dir")
-         .help("location to save the file")
-         .default_value((std::filesystem::current_path() / "files").string());
+      .help("location to save the file")
+      .default_value((std::filesystem::current_path() / "files").string());
 
   program.parse_args(argc, argv);
+  // clang-format on
 }
 
 int main(int argc, char* argv[])
@@ -47,7 +46,8 @@ int main(int argc, char* argv[])
   // HACK: prevent io to stop when there is no async action
   auto guard = asio::make_work_guard(context);
 
-  ar::Window window{"nourton client"sv, 800, 800};
+  int* a = nullptr;
+  ar::Window window{"nourton client", 800, 800};
 
   auto ip_str = program.get<std::string>("-i");
   auto save_dir = program.get<std::string>("-d");
@@ -66,12 +66,10 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  std::thread io_thread{
-    [&] {
-      ar::Logger::set_current_thread_name("IO");
-      context.run();
-    }
-  };
+  std::thread io_thread{[&] {
+    ar::Logger::set_current_thread_name("IO");
+    context.run();
+  }};
 
   app.start();
   io_thread.join();

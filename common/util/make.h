@@ -12,8 +12,8 @@ namespace ar
    * @return std::expected with T value
    */
   template <typename T, typename E, typename... Arg>
-  std::expected<T, E> make_expected(
-    Arg&&... args) noexcept(noexcept(std::expected<T, E>{std::in_place, std::forward<Arg>(args)...}))
+  std::expected<T, E> make_expected(Arg&&... args) noexcept(noexcept(std::expected<T, E>{
+      std::in_place, std::forward<Arg>(args)...}))
   {
     return std::expected<T, E>{std::in_place, std::forward<Arg>(args)...};
   }
@@ -27,8 +27,7 @@ namespace ar
    */
   template <typename E, typename... Arg>
   std::unexpected<E> unexpected(Arg&&... args) noexcept(noexcept(std::unexpected<E>{
-    std::in_place, std::forward<Arg>(args)...
-  }))
+      std::in_place, std::forward<Arg>(args)...}))
   {
     return std::unexpected<E>{std::in_place, std::forward<Arg>(args)...};
   }
@@ -41,9 +40,9 @@ namespace ar
    * @return std::optional with T value
    */
   template <typename T, typename... Arg>
-  std::optional<T> make_optional(
-    Arg&&... args) noexcept(noexcept(std::optional<T>{std::in_place, std::forward<Arg>(args)...}))
+  std::optional<T> make_optional(Arg&&... args) noexcept(noexcept(std::optional<T>{
+      std::in_place, std::forward<Arg>(args)...}))
   {
     return std::optional<T>{std::in_place, std::forward<Arg>(args)...};
   }
-}
+}  // namespace ar

@@ -3,11 +3,10 @@
 #include <chrono>
 
 #ifndef AR_NO_LITERAL_PREFIX
-#define AR_LITERAL_NAME(name) _##name
+  #define AR_LITERAL_NAME(name) _##name
 #else
-#include <chrono>
-#include <chrono>
-#define AR_LITERAL_NAME(name) ##name
+  #include <chrono>
+  #define AR_LITERAL_NAME(name) ##name
 #endif
 
 #define DEFINED_LITERAL(name) operator"" AR_LITERAL_NAME(name)
@@ -75,7 +74,7 @@ namespace ar::literal
   {
     return static_cast<isize>(val_);
   }
-}
+}  // namespace ar::literal
 
 using namespace ar::literal;
 using namespace std::literals;

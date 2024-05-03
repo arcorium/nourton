@@ -4,37 +4,40 @@
 
 #include "connection.h"
 
-#include <asio/thread_pool.hpp>
+#include <fmt/format.h>
+
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/placeholders.hpp>
 #include <asio/read.hpp>
 #include <asio/redirect_error.hpp>
+#include <asio/thread_pool.hpp>
 #include <asio/use_awaitable.hpp>
 #include <asio/write.hpp>
 
-#include <fmt/format.h>
-
 #include "core.h"
-
+#include "logger.h"
+#include "message/payload.h"
 #include "util/asio.h"
 #include "util/make.h"
-#include "message/payload.h"
-
-#include "logger.h"
 
 namespace ar
 {
   Connection::Connection(asio::any_io_executor executor) noexcept
-    : is_closing_{true}, socket_{std::move(executor)},
-      write_timer_{socket_.get_executor(), std::chrono::steady_clock::time_point::max()},
-      user_{} {}
+      : is_closing_{true},
+        socket_{std::move(executor)},
+        write_timer_{socket_.get_executor(), std::chrono::steady_clock::time_point::max()}
+  {
+  }
 
   Connection::Connection(Connection&& other) noexcept
-    : is_closing_{other.is_closing_.exchange(true)},
-      write_message_queue_{std::move(other.write_message_queue_)},
-      socket_{std::move(other.socket())}, write_timer_{std::move(other.write_timer_)},
-      user_{std::move(other.user_)} {}
+      : is_closing_{other.is_closing_.exchange(true)},
+        write_message_queue_{std::move(other.write_message_queue_)},
+        socket_{std::move(other.socket())},
+        write_timer_{std::move(other.write_timer_)},
+        user_{std::move(other.user_)}
+  {
+  }
 
   Connection& Connection::operator=(Connection&& other) noexcept
   {
@@ -49,9 +52,10 @@ namespace ar
     return *this;
   }
 
-  Connection::~Connection() noexcept {}
+  Connection::~Connection() noexcept = default;
 
-  asio::awaitable<asio::error_code> Connection::connect(const asio::ip::tcp::endpoint& endpoint) noexcept
+  asio::awaitable<asio::error_code> Connection::connect(
+      const asio::ip::tcp::endpoint& endpoint) noexcept
   {
     auto [ec] = co_await socket_.async_connect(endpoint, ar::await_with_error());
     co_return ec;
@@ -81,15 +85,19 @@ namespace ar
     Message message{};
     {
       auto [ec, n] = co_await asio::async_read(socket_, asio::buffer(message.header),
-                                               asio::transfer_exactly(Message::header_size), ar::await_with_error());
+                                               asio::transfer_exactly(Message::header_size),
+                                               ar::await_with_error());
       if (ec || n != Message::header_size)
         co_return std::unexpected(ec);
     }
 
     auto header = message.as_header();
-    message.body.resize(header->body_size); // NOTE: need to resize instead of reserve because of using asio::buffer
+    message.body.resize(
+        header
+            ->body_size);  // NOTE: need to resize instead of reserve because of using asio::buffer
     auto [ec, n] = co_await asio::async_read(socket_, asio::buffer(message.body),
-                                             asio::transfer_exactly(header->body_size), ar::await_with_error());
+                                             asio::transfer_exactly(header->body_size),
+                                             ar::await_with_error());
     if (ec || n != header->body_size)
       co_return std::unexpected(ec);
 
@@ -168,4 +176,4 @@ namespace ar
     Logger::trace("connection no longer run write handler");
     // close(); TODO: Should be called from outside class
   }
-} // namespace ar
+}  // namespace ar

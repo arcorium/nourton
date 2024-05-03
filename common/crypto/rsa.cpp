@@ -1,24 +1,21 @@
 #include "rsa.h"
 
+#include <fmt/format.h>
+#include <logger.h>
 #include <util/algorithm.h>
 
-#include <logger.h>
-
-#include <fmt/format.h>
-
 #include "core.h"
-
 #include "util/convert.h"
 
 namespace ar
 {
   RSA::RSA(const prime_type p, const prime_type q, const prime_type e) noexcept
-    : p_{p}, q_{q}, n_{p * q}, e_{e}
+      : p_{p}, q_{q}, n_{p * q}, e_{e}
   {
     prime_type phi = (p_ - 1) * (q_ - 1);
 
-    // e should be 1 < e < phi and gcd(phi, e) == 1, e = prime number | e and phi is coprime using gcd
-    // NOTE: coprime is when two number only have '1' as their only common factor between them
+    // e should be 1 < e < phi and gcd(phi, e) == 1, e = prime number | e and phi is coprime using
+    // gcd NOTE: coprime is when two number only have '1' as their only common factor between them
     // public key is {e, n}
     // TODO: use ar::generate_primt_nth instead
     if (e == 0)
@@ -49,13 +46,15 @@ namespace ar
   }
 
   RSA::RSA(const _public_key& public_key) noexcept
-    : n_{public_key.n}, e_{public_key.e} {}
+      : n_{public_key.n}, e_{public_key.e}
+  {
+  }
 
   RSA::RSA() noexcept
-    : RSA{
-      ar::nth_prime<prime_type>(ar::random<u64>(8000, 9000)),
-      ar::nth_prime<prime_type>(ar::random<u64>(9001, 10000))
-    } {}
+      : RSA{ar::nth_prime<prime_type>(ar::random<u64>(8000, 9000)),
+            ar::nth_prime<prime_type>(ar::random<u64>(9001, 10000))}
+  {
+  }
 
   std::expected<RSA::block_enc_type, std::string_view> RSA::encrypt(block_type block) noexcept
   {
@@ -117,7 +116,8 @@ namespace ar
     return message.convert_to<block_type>();
   }
 
-  std::expected<std::vector<RSA::block_type>, std::string_view> RSA::decrypts(std::span<u8> bytes) noexcept
+  std::expected<std::vector<RSA::block_type>, std::string_view> RSA::decrypts(
+      std::span<u8> bytes) noexcept
   {
     constexpr auto byte_size = ar::size_of<block_enc_type>();
     if (bytes.size() % byte_size != 0)
@@ -159,7 +159,8 @@ namespace ar
     return result;
   }
 
-  std::expected<RSA::_public_key, std::string_view> deserialize_rsa(std::span<const u8> bytes) noexcept
+  std::expected<RSA::_public_key, std::string_view> deserialize_rsa(
+      std::span<const u8> bytes) noexcept
   {
     constexpr static usize size = ar::size_of<RSA::key_type>() + ar::size_of<RSA::prime_type>();
     constexpr static usize prime_size = ar::size_of<RSA::prime_type>();
@@ -168,8 +169,8 @@ namespace ar
       return std::unexpected("provided bytes has different size from expected"sv);
 
     return RSA::_public_key{
-      .e = *((RSA::prime_type*)(bytes.data() + 0)),
-      .n = rawToBoost_uint128(bytes.data() + prime_size),
+        .e = *((RSA::prime_type*)(bytes.data() + 0)),
+        .n = rawToBoost_uint128(bytes.data() + prime_size),
     };
   }
-}
+}  // namespace ar

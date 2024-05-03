@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstdint>
-#include <utility>
-
 #include <boost/multiprecision/integer.hpp>
 #include <boost/multiprecision/number.hpp>
-
+#include <cstdint>
+#include <utility>
 
 using u8 = uint8_t;
 using byte = u8;
@@ -46,10 +44,7 @@ static_assert(sizeof(u128) & sizeof(i128));
 namespace ar
 {
   template <typename T>
-  concept number = requires(T t)
-  {
-    std::integral<T> || std::floating_point<T>;
-  };
+  concept number = requires(T t) { std::integral<T> || std::floating_point<T>; };
 
   template <usize Bytes>
   struct uint;
@@ -113,7 +108,6 @@ namespace ar
     using type = i128;
   };
 
-
   template <>
   struct uint<16>
   {
@@ -157,7 +151,7 @@ namespace ar
     return sizeof(T);
   }
 
-  template <typename T> // WARN: T for t will return the T itself
+  template <typename T>  // WARN: T for t will return the T itself
   using signed_type_of = typename sint<size_of<T>()>::type;
 
   template <typename T>
@@ -173,4 +167,4 @@ namespace ar
   // Extras
   static_assert(std::is_same_v<signed_type_of<u128>, i128>);
   static_assert(std::is_same_v<unsigned_type_of<i128>, u128>);
-}
+}  // namespace ar

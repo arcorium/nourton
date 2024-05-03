@@ -2,11 +2,10 @@
 // Created by mizzh on 4/21/2024.
 //
 
-#include <gtest/gtest.h>
-
-#include <util/types.h>
-#include <util/convert.h>
 #include <crypto/camellia.h>
+#include <gtest/gtest.h>
+#include <util/convert.h>
+#include <util/types.h>
 
 TEST(byte, combine)
 {
@@ -28,7 +27,6 @@ TEST(byte, u128_downcast_by_convert)
   u128 val_16 = VAL16;
   auto converted_16 = val_16.convert_to<u16>();
   EXPECT_EQ(VAL16, converted_16);
-
 
   constexpr u16 VAL64 = std::numeric_limits<u64>::max() - 123;
   u128 val_64 = VAL64;
@@ -79,7 +77,6 @@ TEST(convert, combine_to_bytes)
 
   // std::cout << std::hex << "VAL: " << val << std::endl;
   // std::cout << "RES: " << res2 << std::endl;
-
 
   ASSERT_EQ(res2, val);
 }

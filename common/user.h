@@ -23,4 +23,4 @@ namespace ar
     // std::vector<u8> public_key;
     // DMRSA::_public_key public_key;
   };
-}
+}  // namespace ar

@@ -4,15 +4,14 @@
 
 #include "camellia.h"
 
+#include <fmt/ranges.h>
+#include <fmt/std.h>
+#include <util/convert.h>
+#include <util/literal.h>
+
 #include <array>
 #include <random>
 #include <ranges>
-
-#include <fmt/std.h>
-#include <fmt/ranges.h>
-
-#include <util/convert.h>
-#include <util/literal.h>
 
 #include "util/algorithm.h"
 #include "util/make.h"
@@ -20,7 +19,7 @@
 namespace ar
 {
   Camellia::Camellia(key_type key) noexcept
-    : key_{}, ka_{}, kw_{}, k_{}, ke_{}
+      : key_{}, ka_{}, kw_{}, k_{}, ke_{}
   {
     // set key
     for (const auto& [i, byte] : key | std::views::enumerate)
@@ -28,7 +27,7 @@ namespace ar
 
     // TODO: use key_ instead of key from parameter
     u128 kl = rawToBoost_uint128(key.data());
-    u128 kr = 0; // 0, becuase the key only 128 bit
+    u128 kr = 0;  // 0, becuase the key only 128 bit
 
     // std::cout << "KL: " << std::hex << kl << std::endl;
     // std::cout << "aa: " << std::dec << aa << std::endl;
@@ -77,7 +76,9 @@ namespace ar
   }
 
   Camellia::Camellia() noexcept
-    : Camellia{random_bytes<KEY_BYTE>()} {}
+      : Camellia{random_bytes<KEY_BYTE>()}
+  {
+  }
 
   std::expected<Camellia, std::string_view> Camellia::create(std::string_view key) noexcept
   {
@@ -92,7 +93,7 @@ namespace ar
   }
 
   std::expected<std::array<unsigned char, KEY_BYTE>, std::string_view> Camellia::encrypt(
-    block_type block) const noexcept
+      block_type block) const noexcept
   {
     if (block.size() != KEY_BYTE)
       return std::unexpected("block should be 16 bytes long!");
@@ -161,7 +162,8 @@ namespace ar
     return std::make_tuple(fill, result);
   }
 
-  std::expected<std::array<u8, KEY_BYTE>, std::string_view> Camellia::decrypt(block_type cipher_block) const noexcept
+  std::expected<std::array<u8, KEY_BYTE>, std::string_view> Camellia::decrypt(
+      block_type cipher_block) const noexcept
   {
     if (cipher_block.size() != KEY_BYTE)
       return std::unexpected("block should be 16 bytes long!");
@@ -189,8 +191,8 @@ namespace ar
       round(d1, d2, (18 - i * 6) - 1);
       if (i < 2)
       {
-        d1 = FL(d1, ke_[3 - (i * 2 + 0)]); // 3, 1
-        d2 = FLINV(d2, ke_[3 - (i * 2 + 1)]); // 2, 0
+        d1 = FL(d1, ke_[3 - (i * 2 + 0)]);     // 3, 1
+        d2 = FLINV(d2, ke_[3 - (i * 2 + 1)]);  // 2, 0
       }
     }
 
@@ -265,7 +267,7 @@ namespace ar
     auto yy7 = static_cast<u64>(y7) << 8;
     auto yy8 = static_cast<u64>(y8);
 
-    //uint64_t F_OUT = (y1 << 56) | (y2 << 48) | (y3 << 40) | (y4 << 32)
+    // uint64_t F_OUT = (y1 << 56) | (y2 << 48) | (y3 << 40) | (y4 << 32)
     //| (y5 << 24) | (y6 << 16) | (y7 << 8) | y8;
     uint64_t F_OUT2 = yy1 | yy2 | yy3 | yy4 | yy5 | yy6 | yy7 | yy8;
 
@@ -287,8 +289,8 @@ namespace ar
 
   u64 Camellia::FLINV(u64 in, u64 subkey) const noexcept
   {
-    u32 left = in >> 32; // lsb
-    u32 right = in & MASK_32BIT; //msb
+    u32 left = in >> 32;          // lsb
+    u32 right = in & MASK_32BIT;  // msb
     const u32 subkey_msb = subkey >> 32;
     const u32 subkey_lsb = subkey & MASK_32BIT;
 
@@ -297,4 +299,4 @@ namespace ar
     right ^= std::rotl(left & subkey_msb, 1);
     return combine<u64>(right, left);
   }
-} // ar
+}  // namespace ar

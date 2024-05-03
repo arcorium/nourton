@@ -4,38 +4,42 @@
 
 #include "client.h"
 
+#include <fmt/format.h>
+
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/thread_pool.hpp>
 #include <utility>
 
-#include <fmt/format.h>
-
-#include "logger.h"
 #include "handler.h"
+#include "logger.h"
 
 namespace ar
 {
   Client::Client(asio::any_io_executor executor, asio::ip::address address, u16 port,
                  IEventHandler* event_handler) noexcept
-    : Client{std::move(executor), asio::ip::tcp::endpoint{address, port}, event_handler} {}
+      : Client(std::move(executor), asio::ip::tcp::endpoint{address, port}, event_handler)
+  {
+  }
 
   Client::Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint,
                  IEventHandler* event_handler) noexcept
-    : event_handler_{event_handler}, executor_{std::move(executor)},
-      endpoint_{std::move(endpoint)}, connection_{executor_}
+      : event_handler_{event_handler},
+        executor_{std::move(executor)},
+        endpoint_{std::move(endpoint)},
+        connection_{executor_}
   {
-    Logger::info(fmt::format("client connecting to {}: {}",
-                             endpoint_.address().to_string(),
+    Logger::info(fmt::format("client connecting to {}: {}", endpoint_.address().to_string(),
                              endpoint_.port()));
   }
 
-  Client::~Client() noexcept {}
+  Client::~Client() noexcept = default;
 
   Client::Client(Client&& other) noexcept
-    : event_handler_{other.event_handler_}, executor_{std::move(other.executor_)},
-      endpoint_{std::move(other.endpoint_)},
-      connection_{std::move(other.connection_)}
+      : event_handler_{other.event_handler_},
+        executor_{std::move(other.executor_)},
+        endpoint_{std::move(other.endpoint_)},
+        connection_{std::move(other.connection_)}
   {
     other.event_handler_ = nullptr;
   }
@@ -46,8 +50,7 @@ namespace ar
     auto ec = co_await connection_.connect(endpoint_);
     if (ec)
     {
-      Logger::error(
-        fmt::format("failed to connect into endpoint : {}", ec.message()));
+      Logger::error(fmt::format("failed to connect into endpoint : {}", ec.message()));
       co_return false;
     }
 
@@ -86,9 +89,7 @@ namespace ar
       message_handler(msg.value());
     }
 
-    asio::post(executor_, [this] {
-      disconnect();
-    });
+    asio::post(executor_, [this] { disconnect(); });
   }
 
   void Client::message_handler(const Message& msg) noexcept
@@ -126,4 +127,4 @@ namespace ar
       break;
     }
   }
-} // namespace ar
+}  // namespace ar

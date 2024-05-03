@@ -5,12 +5,11 @@
 #define AR_USE_BOOST_POWM
 #include "dm_rsa.h"
 
-#include <asio/io_service.hpp>
-
 #include <fmt/format.h>
 
-#include "logger.h"
+#include <asio/io_service.hpp>
 
+#include "logger.h"
 #include "util/algorithm.h"
 #include "util/convert.h"
 
@@ -18,16 +17,17 @@ namespace ar
 {
   bool DMRSA::_public_key::is_valid() const noexcept
   {
-    return !(e1_ == 0 || e2_ == 0 || n1_ == 0 || n2_ == 0);
+    return !(e1 == 0 || e2 == 0 || n1 == 0 || n2 == 0);
   }
 
   bool DMRSA::_private_key::is_valid() const noexcept
   {
-    return !(d1_ == 0 || d2_ == 0 || n1_ == 0 || n2_ == 0);
+    return !(d1 == 0 || d2 == 0 || n1 == 0 || n2 == 0);
   }
 
-  DMRSA::DMRSA(prime_type p1, prime_type p2, prime_type q1, prime_type q2, prime_type e1, prime_type e2) noexcept
-    : p1_{p1}, p2_{p2}, q1_{q1}, q2_{q2}, n1_{p1 * p2}, n2_{q1 * q2}, e1_{e1}, e2_{e2}
+  DMRSA::DMRSA(prime_type p1, prime_type p2, prime_type q1, prime_type q2, prime_type e1,
+               prime_type e2) noexcept
+      : p1_{p1}, p2_{p2}, q1_{q1}, q2_{q2}, n1_{p1 * p2}, n2_{q1 * q2}, e1_{e1}, e2_{e2}
   {
     // std::cout << "----------------------------------------" << std::endl;
     // std::cout << "p1: " << std::hex << p1_ << std::dec << " | " << p1_ << std::endl;
@@ -83,31 +83,33 @@ namespace ar
   }
 
   DMRSA::DMRSA(const _public_key& public_key) noexcept
-    : n1_{public_key.n1_}, n2_{public_key.n2_}, e1_{public_key.e1_}, e2_{public_key.e2_} {}
+      : n1_{public_key.n1}, n2_{public_key.n2}, e1_{public_key.e1}, e2_{public_key.e2}
+  {
+  }
 
   DMRSA::DMRSA() noexcept
-    : DMRSA{
-      ar::nth_prime<prime_type>(ar::random<u64>(8000, 8000)),
-      ar::nth_prime<prime_type>(ar::random<u64>(8001, 9000)),
-      ar::nth_prime<prime_type>(ar::random<u64>(9001, 10000)),
-      ar::nth_prime<prime_type>(ar::random<u64>(10001, 11000))
-    } {}
+      : DMRSA{ar::nth_prime<prime_type>(ar::random<u64>(8000, 8000)),
+              ar::nth_prime<prime_type>(ar::random<u64>(8001, 9000)),
+              ar::nth_prime<prime_type>(ar::random<u64>(9001, 10000)),
+              ar::nth_prime<prime_type>(ar::random<u64>(10001, 11000))}
+  {
+  }
 
   DMRSA::DMRSA(low_prime_t) noexcept
-    : DMRSA{
-      ar::nth_prime<prime_type>(ar::random<u64>(50, 100)),
-      ar::nth_prime<prime_type>(ar::random<u64>(101, 200)),
-      ar::nth_prime<prime_type>(ar::random<u64>(201, 250)),
-      ar::nth_prime<prime_type>(ar::random<u64>(251, 300))
-    } {}
+      : DMRSA{ar::nth_prime<prime_type>(ar::random<u64>(50, 100)),
+              ar::nth_prime<prime_type>(ar::random<u64>(101, 200)),
+              ar::nth_prime<prime_type>(ar::random<u64>(201, 250)),
+              ar::nth_prime<prime_type>(ar::random<u64>(251, 300))}
+  {
+  }
 
   DMRSA::DMRSA(mid_prime_t) noexcept
-    : DMRSA{
-      ar::nth_prime<prime_type>(ar::random<u64>(1001, 1500)),
-      ar::nth_prime<prime_type>(ar::random<u64>(1501, 2000)),
-      ar::nth_prime<prime_type>(ar::random<u64>(2000, 2500)),
-      ar::nth_prime<prime_type>(ar::random<u64>(2501, 3000))
-    } {}
+      : DMRSA{ar::nth_prime<prime_type>(ar::random<u64>(1001, 1500)),
+              ar::nth_prime<prime_type>(ar::random<u64>(1501, 2000)),
+              ar::nth_prime<prime_type>(ar::random<u64>(2000, 2500)),
+              ar::nth_prime<prime_type>(ar::random<u64>(2501, 3000))}
+  {
+  }
 
   std::expected<DMRSA::block_enc_type, std::string_view> DMRSA::encrypt(block_type block) noexcept
   {
@@ -118,7 +120,8 @@ namespace ar
     if (block >= n1_)
       return std::unexpected("block should be less than n1, choose bigger prime numbers!"sv);
 
-    // std::cout << "block: " << std::hex << (int)block << " | " << std::dec << (int)block << std::endl;
+    // std::cout << "block: " << std::hex << (int)block << " | " << std::dec << (int)block <<
+    // std::endl;
 
     auto first = ar::mod_exponential<key_type>(block, e1_, n1_);
     // std::cout << "first: " << std::hex << first << " | " << std::dec << first << std::endl;
@@ -135,7 +138,8 @@ namespace ar
     return result;
   }
 
-  std::tuple<usize, std::vector<DMRSA::block_enc_type>> DMRSA::encrypts(std::span<u8> bytes) noexcept
+  std::tuple<usize, std::vector<DMRSA::block_enc_type>> DMRSA::encrypts(
+      std::span<u8> bytes) noexcept
   {
     // NOTE: Implementation is the same with original RSA
     usize remaining_bytes = bytes.size() % ar::size_of<block_type>();
@@ -189,7 +193,8 @@ namespace ar
     return second.convert_to<block_type>();
   }
 
-  std::expected<std::vector<DMRSA::block_type>, std::string_view> DMRSA::decrypts(std::span<const u8> bytes) noexcept
+  std::expected<std::vector<DMRSA::block_type>, std::string_view> DMRSA::decrypts(
+      std::span<const u8> bytes) noexcept
   {
     constexpr auto byte_size = ar::size_of<block_enc_type>();
     if (bytes.size() % byte_size != 0)
@@ -197,7 +202,8 @@ namespace ar
 
     usize block_count = bytes.size() / byte_size;
 
-    std::span<const block_enc_type> temp{reinterpret_cast<const block_enc_type*>(bytes.data()), block_count};
+    std::span<const block_enc_type> temp{reinterpret_cast<const block_enc_type*>(bytes.data()),
+                                         block_count};
     std::vector<block_type> result{};
     result.reserve(block_count);
 
@@ -211,30 +217,20 @@ namespace ar
 
   DMRSA::_public_key DMRSA::public_key() const noexcept
   {
-    return _public_key{
-      .e1_ = e1_,
-      .e2_ = e2_,
-      .n1_ = n1_,
-      .n2_ = n2_
-    };
+    return _public_key{.e1 = e1_, .e2 = e2_, .n1 = n1_, .n2 = n2_};
   }
 
   DMRSA::_private_key DMRSA::private_key() const noexcept
   {
-    return _private_key{
-      .d1_ = d1_,
-      .d2_ = d2_,
-      .n1_ = n1_,
-      .n2_ = n2_
-    };
+    return _private_key{.d1 = d1_, .d2 = d2_, .n1 = n1_, .n2 = n2_};
   }
 
   std::vector<u8> serialize(const DMRSA::_public_key& key) noexcept
   {
-    auto n1_bytes = as_bytes(key.n1_);
-    auto n2_bytes = as_bytes(key.n2_);
-    auto e1_bytes = as_span<u8, DMRSA::prime_type>(key.e1_);
-    auto e2_bytes = as_span<u8, DMRSA::prime_type>(key.e2_);
+    auto n1_bytes = as_bytes(key.n1);
+    auto n2_bytes = as_bytes(key.n2);
+    auto e1_bytes = as_span<u8, DMRSA::prime_type>(key.e1);
+    auto e2_bytes = as_span<u8, DMRSA::prime_type>(key.e2);
 
     std::vector<u8> result{};
     result.append_range(e1_bytes);
@@ -244,9 +240,11 @@ namespace ar
     return result;
   }
 
-  std::expected<DMRSA::_public_key, std::string_view> deserialize(std::span<const u8> bytes) noexcept
+  std::expected<DMRSA::_public_key, std::string_view> deserialize(
+      std::span<const u8> bytes) noexcept
   {
-    constexpr static usize size = ar::size_of<DMRSA::key_type>() * 2 + ar::size_of<DMRSA::prime_type>() * 2;
+    constexpr static usize size
+        = ar::size_of<DMRSA::key_type>() * 2 + ar::size_of<DMRSA::prime_type>() * 2;
     constexpr static usize prime_size = ar::size_of<DMRSA::prime_type>();
     constexpr static usize key_size = ar::size_of<DMRSA::key_type>();
 
@@ -254,10 +252,10 @@ namespace ar
       return std::unexpected("provided bytes has different size from expected"sv);
 
     return DMRSA::_public_key{
-      .e1_ = *((DMRSA::prime_type*)(bytes.data() + 0)),
-      .e2_ = *((DMRSA::prime_type*)(bytes.data() + prime_size)),
-      .n1_ = rawToBoost_uint128(bytes.data() + 2 * prime_size),
-      .n2_ = rawToBoost_uint128(bytes.data() + 2 * prime_size + key_size),
+        .e1 = *((DMRSA::prime_type*)(bytes.data() + 0)),
+        .e2 = *((DMRSA::prime_type*)(bytes.data() + prime_size)),
+        .n1 = rawToBoost_uint128(bytes.data() + 2 * prime_size),
+        .n2 = rawToBoost_uint128(bytes.data() + 2 * prime_size + key_size),
     };
   }
-}
+}  // namespace ar

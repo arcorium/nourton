@@ -1,16 +1,15 @@
 #pragma once
+
 #include <filesystem>
 #include <mutex>
 
 #include "client.h"
+#include "crypto/dm_rsa.h"
+#include "file.h"
 #include "handler.h"
 #include "resource.h"
-#include "window.h"
-
 #include "state.h"
-#include "file.h"
-
-#include "crypto/dm_rsa.h"
+#include "window.h"
 
 namespace asio
 {
@@ -67,7 +66,8 @@ namespace ar
     // Callback, called by io thread
   public:
     void on_feedback_response(const FeedbackPayload& payload) noexcept override;
-    void on_file_receive(const Message::Header& header, const SendFilePayload& payload) noexcept override;
+    void on_file_receive(const Message::Header& header,
+                         const SendFilePayload& payload) noexcept override;
     void on_user_login(const UserLoginPayload& payload) noexcept override;
     void on_user_logout(const UserLogoutPayload& payload) noexcept override;
     void on_user_detail_response(const UserDetailPayload& payload) noexcept override;
@@ -77,7 +77,7 @@ namespace ar
     struct SendFileOperationData
     {
       User::id_type user_id;
-      std::string file_fullpath; // fullpath
+      std::string file_fullpath;  // fullpath
     };
 
   private:
@@ -106,8 +106,10 @@ namespace ar
     std::vector<FileProperty> files_;
     std::vector<std::string_view> deleted_file_names_;
     std::mutex user_mutex_;
-    // better to use list instead, because when the vector grows it will invalidate all files that have reference on the users
-    // HACK: for now the vector will reserve big number (1024)
+
+    // better to use list instead, because when the vector grows it will
+    // invalidate all files that have reference on the users HACK: for now the
+    // vector will reserve big number (1024)
     std::vector<UserClient> users_;
     std::unique_ptr<UserClient> this_user_;
 
@@ -119,4 +121,4 @@ namespace ar
 
     Client client_;
   };
-}
+}  // namespace ar

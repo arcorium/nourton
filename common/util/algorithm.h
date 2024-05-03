@@ -1,9 +1,8 @@
 #pragma once
 #include <expected>
+#include <primesieve.hpp>
 #include <random>
 #include <string_view>
-
-#include <primesieve.hpp>
 
 #include "types.h"
 
@@ -11,7 +10,7 @@ namespace ar
 {
   // @copyright https://www.geeksforgeeks.org/gcd-in-cpp/
   // template <ar::number T>
-  template <typename T> // HACK: use generic to allow boost::multiprecision
+  template <typename T>  // HACK: use generic to allow boost::multiprecision
   static constexpr T gcd(T a, T b) noexcept
   {
     if (!a)
@@ -44,7 +43,7 @@ namespace ar
       return b;
     }
 
-    signed_type_of<T> x1, y1; // To store results of recursive call
+    signed_type_of<T> x1, y1;  // To store results of recursive call
     T gcd = gcd_extended(b % a, a, x1, y1);
 
     // Update x and y using results of recursive call
@@ -73,7 +72,7 @@ namespace ar
 
     signed_t res;
     if constexpr (size_of<T>() > size_of<u64>())
-      res = x % m.template convert_to<signed_t>(); // handle conversion for boost::multiprecision
+      res = x % m.template convert_to<signed_t>();  // handle conversion for boost::multiprecision
     else
       res = x % static_cast<signed_t>(m);
 
@@ -82,7 +81,8 @@ namespace ar
   }
 
   template <typename T>
-  static constexpr T random(T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max()) noexcept
+  static constexpr T random(T min = std::numeric_limits<T>::min(),
+                            T max = std::numeric_limits<T>::max()) noexcept
   {
     static std::random_device random{};
     std::mt19937 engine{random()};
@@ -107,15 +107,18 @@ namespace ar
 #ifdef AR_USE_PRIMESIEVE
   #define USE_NAIVE_PRIME 0
 #else
-#define USE_NAIVE_PRIME 1
+  #define USE_NAIVE_PRIME 1
 #endif
 
   template <typename T>
   static constexpr bool is_prime(T n)
   {
-    if (n <= 1) return false; // 0 and 1 is not prime
-    if (n % 2 == 0) return n == 2; // all numbers divided by 2 except 2 is not prime
-    if (n % 3 == 0) return n == 3; // all numbers divided by 3 except 3 is not prime
+    if (n <= 1)
+      return false;  // 0 and 1 is not prime
+    if (n % 2 == 0)
+      return n == 2;  // all numbers divided by 2 except 2 is not prime
+    if (n % 3 == 0)
+      return n == 3;  // all numbers divided by 3 except 3 is not prime
 
     // PERF: add stepping
     T mid = n / 2;
@@ -150,9 +153,8 @@ namespace ar
 #ifdef AR_USE_BOOST_POWM
   #define USE_NAIVE_POWM 0
 #else
-#define USE_NAIVE_POWM 1
+  #define USE_NAIVE_POWM 1
 #endif
-
 
   // a ^ b % m
   // ((a % m) ( b % m )) % m
@@ -162,12 +164,12 @@ namespace ar
   {
     if constexpr (USE_NAIVE_POWM)
     {
-      T res = 1; // Initialize result
+      T res = 1;  // Initialize result
 
-      a = a % m; // Update x if it is more than or
+      a = a % m;  // Update x if it is more than or
 
       if (a == 0)
-        return 0; // In case x is divisible by p;
+        return 0;  // In case x is divisible by p;
 
       while (b > 0)
       {
@@ -175,7 +177,7 @@ namespace ar
         if (b & 1)
           res = (res * a) % m;
 
-        b >>= 1; // divide by 2^1
+        b >>= 1;  // divide by 2^1
         a = (a * a) % m;
       }
       return res;
@@ -192,4 +194,4 @@ namespace ar
         ++result;
     return result;
   }
-}
+}  // namespace ar

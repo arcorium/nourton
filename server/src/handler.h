@@ -1,6 +1,7 @@
 #pragma once
 
 #include <span>
+
 #include "util/types.h"
 
 namespace ar
@@ -17,8 +18,7 @@ namespace ar
   };
 
   template <typename T>
-  concept message_handler = requires(T t, Connection& conn, const Message& msg)
-  {
+  concept message_handler = requires(T t, Connection& conn, const Message& msg) {
     { t.on_message_in(conn, msg) } noexcept -> std::same_as<void>;
     { t.on_message_out(conn, msg) } noexcept -> std::same_as<void>;
   };
@@ -31,8 +31,7 @@ namespace ar
   };
 
   template <typename T>
-  concept connection_handler = requires(T t, Connection& conn)
-  {
+  concept connection_handler = requires(T t, Connection& conn) {
     { t.on_connection_closed(conn) } noexcept -> std::same_as<void>;
   };
-}
+}  // namespace ar

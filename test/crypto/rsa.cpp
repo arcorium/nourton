@@ -1,14 +1,12 @@
+#include "crypto/rsa.h"
+
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
-
 #include <gtest/gtest.h>
-
-#include "util.h"
 
 #include "crypto/camellia.h"
 #include "crypto/dm_rsa.h"
-#include "crypto/rsa.h"
-
+#include "util.h"
 #include "util/algorithm.h"
 #include "util/convert.h"
 #include "util/file.h"
@@ -46,7 +44,8 @@ TEST(rsa, prime_key_inputted)
 
 TEST(rsa, encrypt_bytes)
 {
-  std::string_view message{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."};
+  std::string_view message{
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."};
   auto message_bytes = ar::as_span(message);
   usize expected_filler = 0;
   if (auto result = message_bytes.size() % ar::size_of<ar::RSA::block_type>())
@@ -54,13 +53,13 @@ TEST(rsa, encrypt_bytes)
 
   ar::RSA rsa{};
   auto [filler, cipher] = rsa.encrypts(message_bytes);
-  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::RSA::block_type>() + (expected_filler ? 1 : 0));
+  EXPECT_EQ(cipher.size(),
+            message_bytes.size() / ar::size_of<ar::RSA::block_type>() + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
   auto cipher_bytes = ar::as_bytes<ar::RSA::block_enc_type>(cipher);
   EXPECT_EQ(cipher_bytes.size(),
-            std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::RSA::block_type>()) * ar::size_of<ar::
-            RSA::block_enc_type>(
-            ));
+            std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::RSA::block_type>())
+                * ar::size_of<ar::RSA::block_enc_type>());
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
@@ -145,7 +144,7 @@ TEST(dm_rsa, prime_key_generated)
   {
     ar::DMRSA rsa{};
     // u32 message = 0xDEEDBEEF;
-    auto message = std::numeric_limits<ar::DMRSA::block_type>::max(); // max value
+    auto message = std::numeric_limits<ar::DMRSA::block_type>::max();  // max value
     auto cipher = rsa.encrypt(message);
     ASSERT_TRUE(cipher.has_value());
 
@@ -156,7 +155,8 @@ TEST(dm_rsa, prime_key_generated)
 
 TEST(dm_rsa, encrypt_bytes)
 {
-  std::string_view message{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."};
+  std::string_view message{
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."};
   auto message_bytes = ar::as_span(message);
   usize expected_filler = 0;
   if (auto result = message.size() % ar::size_of<ar::DMRSA::block_type>())
@@ -164,12 +164,13 @@ TEST(dm_rsa, encrypt_bytes)
 
   ar::DMRSA rsa{};
   auto [filler, cipher] = rsa.encrypts(message_bytes);
-  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>() + (expected_filler ? 1 : 0));
+  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>()
+                               + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
   auto cipher_bytes = ar::as_bytes<ar::DMRSA::block_enc_type>(cipher);
-  EXPECT_EQ(cipher_bytes.size(),
-            std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::DMRSA::block_type>()) *
-            ar::size_of<ar::DMRSA::block_enc_type>());
+  EXPECT_EQ(cipher_bytes.size(), std::ceil(static_cast<float>(message_bytes.size())
+                                           / ar::size_of<ar::DMRSA::block_type>())
+                                     * ar::size_of<ar::DMRSA::block_enc_type>());
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
@@ -180,7 +181,8 @@ TEST(dm_rsa, encrypt_bytes)
 
 TEST(dm_rsa, encrypt_bytes_with_remainder)
 {
-  std::string_view message{"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat.abc"};
+  std::string_view message{
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat.abc"};
   auto message_bytes = ar::as_span(message);
   usize expected_filler = 0;
   if (auto result = message.size() % ar::size_of<ar::DMRSA::block_type>())
@@ -188,12 +190,13 @@ TEST(dm_rsa, encrypt_bytes_with_remainder)
 
   ar::DMRSA rsa{};
   auto [filler, cipher] = rsa.encrypts(message_bytes);
-  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>() + (expected_filler ? 1 : 0));
+  EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>()
+                               + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
   auto cipher_bytes = ar::as_bytes<ar::DMRSA::block_enc_type>(cipher);
-  EXPECT_EQ(cipher_bytes.size(),
-            std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::DMRSA::block_type>()) *
-            ar::size_of<ar::DMRSA::block_enc_type>());
+  EXPECT_EQ(cipher_bytes.size(), std::ceil(static_cast<float>(message_bytes.size())
+                                           / ar::size_of<ar::DMRSA::block_type>())
+                                     * ar::size_of<ar::DMRSA::block_enc_type>());
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
@@ -230,7 +233,8 @@ TEST(dm_rsa, serialization)
 
   auto pk = rsa.public_key();
   auto pk_bytes = ar::serialize(pk);
-  EXPECT_EQ(pk_bytes.size(), (2 * ar::size_of<ar::DMRSA::prime_type>() + 2 * ar::size_of<ar::DMRSA::key_type>()));
+  EXPECT_EQ(pk_bytes.size(),
+            (2 * ar::size_of<ar::DMRSA::prime_type>() + 2 * ar::size_of<ar::DMRSA::key_type>()));
 
   auto decipher_pk = ar::deserialize(pk_bytes);
   ASSERT_TRUE(decipher_pk.has_value());
@@ -238,10 +242,10 @@ TEST(dm_rsa, serialization)
   auto temp_pk = ar::deserialize(pk_bytes);
   EXPECT_FALSE(temp_pk.has_value());
 
-  EXPECT_EQ(decipher_pk->e1_, pk.e1_);
-  EXPECT_EQ(decipher_pk->e2_, pk.e2_);
-  EXPECT_EQ(decipher_pk->n1_, pk.n1_);
-  EXPECT_EQ(decipher_pk->n2_, pk.n2_);
+  EXPECT_EQ(decipher_pk->e1, pk.e1);
+  EXPECT_EQ(decipher_pk->e2, pk.e2);
+  EXPECT_EQ(decipher_pk->n1, pk.n1);
+  EXPECT_EQ(decipher_pk->n2, pk.n2);
 }
 
 TEST(dm_rsa, encrypt_camellia_key)
@@ -274,9 +278,9 @@ TEST(dm_rsa, serialize_public_key)
     auto serialized = ar::serialize(public_key);
     auto deserialized = ar::deserialize(serialized);
     ASSERT_TRUE(deserialized.has_value());
-    ASSERT_EQ(deserialized->e1_, public_key.e1_);
-    ASSERT_EQ(deserialized->e2_, public_key.e2_);
-    ASSERT_EQ(deserialized->n1_, public_key.n1_);
-    ASSERT_EQ(deserialized->n2_, public_key.n2_);
+    ASSERT_EQ(deserialized->e1, public_key.e1);
+    ASSERT_EQ(deserialized->e2, public_key.e2);
+    ASSERT_EQ(deserialized->n1, public_key.n1);
+    ASSERT_EQ(deserialized->n2, public_key.n2);
   }
 }

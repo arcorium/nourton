@@ -1,8 +1,7 @@
 #pragma once
 
-#include <span>
-
 #include <gtest/gtest.h>
+
 #include <span>
 
 using namespace std::literals;

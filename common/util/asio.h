@@ -19,10 +19,8 @@ namespace ar
 
   inline bool is_connection_lost(const asio::error_code& ec) noexcept
   {
-    return ec == asio::error::connection_aborted ||
-      ec == asio::error::connection_refused ||
-      ec == asio::error::connection_reset ||
-      ec == asio::error::operation_aborted ||
-      ec == asio::error::eof;
+    return ec == asio::error::connection_aborted || ec == asio::error::connection_refused
+           || ec == asio::error::connection_reset || ec == asio::error::operation_aborted
+           || ec == asio::error::eof;
   }
-}
+}  // namespace ar

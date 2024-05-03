@@ -1,13 +1,12 @@
 #pragma once
-#include <queue>
 
 #include <asio/awaitable.hpp>
+#include <asio/ip/tcp.hpp>
+#include <queue>
 
 #include "message/payload.h"
 #include "util/literal.h"
 #include "util/types.h"
-
-#include <asio/ip/tcp.hpp>
 
 namespace ar
 {
@@ -75,4 +74,4 @@ namespace ar
   {
     return std::forward<Self>(self).user_;
   }
-}
+}  // namespace ar

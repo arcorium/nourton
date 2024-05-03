@@ -2,9 +2,8 @@
 // Created by mizzh on 4/19/2024.
 //
 #pragma once
-#include <atomic>
-
 #include <asio.hpp>
+#include <atomic>
 #include <queue>
 
 #include "message/payload.h"
@@ -23,7 +22,8 @@ namespace ar
     Connection(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
                IConnectionHandler* connection_handler) noexcept;
 
-    template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+    template <typename T>
+      requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
     Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept;
 
     ~Connection() noexcept;
@@ -36,11 +36,14 @@ namespace ar
 
     Connection& operator=(Connection&& other) noexcept;
 
-    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
+    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket,
+                                                   IMessageHandler* message_handler,
                                                    IConnectionHandler* connection_handler) noexcept;
 
-    template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
-    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket, T* handler) noexcept;
+    template <typename T>
+      requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+    static std::shared_ptr<Connection> make_shared(asio::ip::tcp::socket&& socket,
+                                                   T* handler) noexcept;
 
     // Start reading and writing handler
     void start() noexcept;
@@ -49,8 +52,7 @@ namespace ar
 
     bool is_open() const noexcept;
 
-    [[nodiscard]]
-    bool is_authenticated() const noexcept;
+    [[nodiscard]] bool is_authenticated() const noexcept;
 
     template <typename Self>
     auto&& socket(this Self&& self) noexcept;
@@ -81,16 +83,21 @@ namespace ar
     std::atomic_bool is_closing_;
 
     asio::steady_timer write_timer_;
-    std::queue<Message> write_message_queue_; // WARN: need mutex?
+    std::queue<Message> write_message_queue_;  // WARN: need mutex?
     asio::ip::tcp::socket socket_;
   };
 
-  template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+  template <typename T>
+    requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
   Connection::Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept
-    : Connection{std::forward<decltype(socket)>(socket), handler, handler} {}
+      : Connection{std::forward<decltype(socket)>(socket), handler, handler}
+  {
+  }
 
-  template <typename T> requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
-  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket, T* handler) noexcept
+  template <typename T>
+    requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
+  std::shared_ptr<Connection> Connection::make_shared(asio::ip::tcp::socket&& socket,
+                                                      T* handler) noexcept
   {
     return std::make_shared<Connection>(std::forward<decltype(socket)>(socket), handler, handler);
   }
@@ -112,5 +119,4 @@ namespace ar
   {
     return std::forward<Self>(self).user_;
   }
-} // ar
-
+}  // namespace ar

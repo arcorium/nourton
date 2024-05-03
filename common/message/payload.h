@@ -1,20 +1,17 @@
 #pragma once
 
-#include "../util/make.h"
-#include "../util/types.h"
+#include <alpaca/alpaca.h>
+#include <fmt/format.h>
 
 #include <array>
 #include <expected>
-#include <vector>
 #include <span>
-
-#include <alpaca/alpaca.h>
-
-#include <fmt/format.h>
-
-#include "logger.h"
+#include <vector>
 
 #include "../user.h"
+#include "../util/make.h"
+#include "../util/types.h"
+#include "logger.h"
 
 namespace ar
 {
@@ -41,22 +38,25 @@ namespace ar
     {
       u64 body_size;
       Type message_type;
-      u16 opponent_id; // 0 = server
+      u16 opponent_id;  // 0 = server
     };
 
     constexpr static u8 header_size = sizeof(Header);
 
     // TODO: Remove default constructor to force header initialization
-    Message() :
-      header{}, body{} {}
+    Message()
+        : header{}, body{}
+    {
+    }
 
     explicit Message(const Header& header_) noexcept
-      : header{}, body{}
+        : header{}, body{}
     {
       std::memcpy(header.data(), &header_, header_size);
     }
 
-    // WARN: header should not be serialized using alpaca, use the underlying memory layout of Header struct instead
+    // WARN: header should not be serialized using alpaca, use the underlying memory layout of
+    // Header struct instead
     std::array<u8, header_size> header;
     std::vector<u8> body;
 
@@ -104,9 +104,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::UserDetailsResponse,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::UserDetailsResponse,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -127,9 +127,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::GetUserDetails,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::GetUserDetails,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -150,9 +150,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::GetUserOnline,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::GetUserOnline,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -174,9 +174,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::UserOnlineResponse,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::UserOnlineResponse,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -199,9 +199,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::Login,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::Login,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -224,9 +224,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::Register,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::Register,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -248,9 +248,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::StorePublicKey,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::StorePublicKey,
+          .opponent_id = 0,
       };
       Message msg{};
       // alpaca::serialize(header, msg.header);
@@ -268,7 +268,7 @@ namespace ar
     u64 file_size;
     std::string filename;
     std::string timestamp;
-    std::vector<u8> symmetric_key; // encrypted
+    std::vector<u8> symmetric_key;  // encrypted
     std::vector<u8> files;
 
     [[nodiscard]] Message serialize(User::id_type id) const noexcept
@@ -277,9 +277,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::SendFile,
-        .opponent_id = id,
+          .body_size = temp.size(),
+          .message_type = Message::Type::SendFile,
+          .opponent_id = id,
       };
       Message msg{};
       // alpaca::serialize(header, msg.header);
@@ -301,9 +301,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::UserLogin,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::UserLogin,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -325,9 +325,9 @@ namespace ar
       alpaca::serialize(*this, temp);
 
       Message::Header header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::UserLogout,
-        .opponent_id = 0,
+          .body_size = temp.size(),
+          .message_type = Message::Type::UserLogout,
+          .opponent_id = 0,
       };
 
       Message message{};
@@ -350,8 +350,10 @@ namespace ar
     SendFile
   };
 
-  static constexpr std::string_view UNAUTHENTICATED_MESSAGE{"you need to authenticate first to do this action"};
-  static constexpr std::string_view AUTHENTICATED_MESSAGE{"you need to logout first to do this action"};
+  static constexpr std::string_view UNAUTHENTICATED_MESSAGE{
+      "you need to authenticate first to do this action"};
+  static constexpr std::string_view AUTHENTICATED_MESSAGE{
+      "you need to logout first to do this action"};
 
   struct FeedbackPayload
   {
@@ -364,11 +366,9 @@ namespace ar
       std::vector<u8> temp;
       alpaca::serialize(*this, temp);
 
-      auto header = Message::Header{
-        .body_size = temp.size(),
-        .message_type = Message::Type::Feedback,
-        .opponent_id = sender_id
-      };
+      auto header = Message::Header{.body_size = temp.size(),
+                                    .message_type = Message::Type::Feedback,
+                                    .opponent_id = sender_id};
 
       auto msg = Message{};
       // alpaca::serialize(header, msg.header);
@@ -377,4 +377,4 @@ namespace ar
       return msg;
     }
   };
-}
+}  // namespace ar

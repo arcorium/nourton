@@ -1,39 +1,31 @@
 #include "application.h"
 
-#include <magic_enum.hpp>
-
+#include <GLFW/glfw3.h>
+#include <fmt/ostream.h>
 #include <glad/glad.h>
+#include <tinyfiledialogs.h>
+#include <user.h>
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/thread_pool.hpp>
-
-#include <GLFW/glfw3.h>
-
-#include "logger.h"
-
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
+#include <magic_enum.hpp>
 
 #include "awesome_6.h"
 #include "awesome_brand.h"
-#include "widget.h"
-
-#include <user.h>
-
-#include <fmt/ostream.h>
-
-#include <tinyfiledialogs.h>
-
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 #include "core.h"
 #include "crypto/camellia.h"
 #include "crypto/dm_rsa.h"
+#include "logger.h"
 #include "util/algorithm.h"
 #include "util/convert.h"
 #include "util/file.h"
+#include "util/imgui.h"
 #include "util/time.h"
 #include "util/tinyfd.h"
-#include "util/imgui.h"
+#include "widget.h"
 
 namespace ar
 {
@@ -43,8 +35,13 @@ namespace ar
 
   Application::Application(asio::io_context& ctx, Window window, std::string_view ip, u16 port,
                            std::string_view save_dir) noexcept
-    : is_running_{false}, context_{ctx}, state_{PageState::Login}, window_{std::move(window)},
-      save_dir_{save_dir}, selected_user_{-1}, client_{ctx.get_executor(), asio::ip::make_address_v4(ip), port, this}
+      : is_running_{false},
+        context_{ctx},
+        state_{PageState::Login},
+        window_{std::move(window)},
+        save_dir_{save_dir},
+        selected_user_{-1},
+        client_{ctx.get_executor(), asio::ip::make_address_v4(ip), port, this}
   {
     users_.reserve(1024);
     username_.reserve(255);
@@ -70,7 +67,8 @@ namespace ar
     if (send_file_thread_.joinable())
       send_file_thread_.join();
 
-    // send file thread needs the query window, so it should be destroyed after the thread
+    // send file thread needs the query window, so it should be destroyed after
+    // the thread
     window_.destroy();
     glfwTerminate();
     Logger::info("Application stopped!");
@@ -84,11 +82,12 @@ namespace ar
 
     // GLFWCallback
     glfwSetWindowUserPointer(window_.handle(), this);
-    glfwSetDropCallback(window_.handle(), [](GLFWwindow* window, int path_count, const char* paths[]) {
-      auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
-      // get last item (doesn't allow dropping multipple items)
-      app->on_file_drop(paths[path_count - 1]);
-    });
+    glfwSetDropCallback(window_.handle(),
+                        [](GLFWwindow* window, int path_count, const char* paths[]) {
+                          auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+                          // get last item (doesn't allow dropping multipple items)
+                          app->on_file_drop(paths[path_count - 1]);
+                        });
 
     gui::CreateContext();
     // gui::StyleColorsDark();
@@ -116,15 +115,20 @@ namespace ar
     config.SizePixels = 12.f;
 
     // add_fonts(io, "../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 24.f);
-    io.Fonts->AddFontFromFileTTF("../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 24.f, nullptr);
-    io.Fonts->AddFontFromFileTTF(
-      FONT_ICON_FILE_NAME_FAS("../../resource/font/"), 16.f, &config, icon_ranges);
-    io.Fonts->AddFontFromFileTTF(
-      "../../resource/font/fa-brands-400.ttf", 16.f, &config, icon_ranges);
-    // add_fonts(io, "../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 6.f, 8.f, 12.f);
-    // add_fonts(io, "../../resource/font/Bahila.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
-    // add_fonts(io, "../../resource/font/MusticaPro.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
-    // add_fonts(io, "../../resource/font/Linford.ttf", 12.f, 14.f, 24.f, 42.f, 72.f);
+    io.Fonts->AddFontFromFileTTF("../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 24.f,
+                                 nullptr);
+    io.Fonts->AddFontFromFileTTF(FONT_ICON_FILE_NAME_FAS("../../resource/font/"), 16.f, &config,
+                                 icon_ranges);
+    io.Fonts->AddFontFromFileTTF("../../resource/font/fa-brands-400.ttf", 16.f, &config,
+                                 icon_ranges);
+    // add_fonts(io,
+    // "../../resource/font/FiraCodeNerdFont-SemiBold.ttf", 6.f, 8.f, 12.f);
+    // add_fonts(io,
+    // "../../resource/font/Bahila.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
+    // add_fonts(io,
+    // "../../resource/font/MusticaPro.otf", 12.f, 14.f, 24.f, 42.f, 72.f);
+    // add_fonts(io,
+    // "../../resource/font/Linford.ttf", 12.f, 14.f, 24.f, 42.f, 72.f);
     if (!resource_manager_.load_font("FiraCodeNerdFont-SemiBold.ttf", 6.f, 8.f, 12.f, 14.f, 16.f))
       Logger::warn("Failed on reading fonts FiraCodeNerdFont-SemiBold.ttf");
 
@@ -214,7 +218,8 @@ namespace ar
   {
     while (is_running())
     {
-      // when the work is empty, then wait or continue until there's no work left
+      // when the work is empty, then wait or continue until there's no work
+      // left
       if (send_file_datas_.empty())
       {
         // wait until there is a work
@@ -238,7 +243,8 @@ namespace ar
       {
         std::unique_lock lock{user_mutex_};
 
-        auto it = std::ranges::find_if(users_, [&](const UserClient& uc) { return uc.id == data.user_id; });
+        auto it = std::ranges::find_if(users_,
+                                       [&](const UserClient& uc) { return uc.id == data.user_id; });
         if (it == users_.end())
         {
           Logger::error("trying to send file to user that doesn't exists");
@@ -250,13 +256,16 @@ namespace ar
         user = &*it;
       }
 
-      // FIX: not needed, because the condition variable will only signaled when the user detail is ready
+      // FIX: not needed, because the condition variable will only signaled when
+      // the user detail is ready
       if (!user->public_key.is_valid())
       {
         // wait until user detail received
         if (state_.expected_operation_state() != OperationState::GetUserDetails)
         {
-          Logger::error("trying to send file to user with no public key and not getting the public key");
+          Logger::error(
+              "trying to send file to user with no public key and not "
+              "getting the public key");
           state_.disable_loading_overlay();
           state_.active_overlay(OverlayState::InternalError);
           continue;
@@ -286,19 +295,20 @@ namespace ar
       DMRSA rsa{user->public_key};
       auto [key_filler, enc_key] = rsa.encrypts(symmetric_key);
 
-      // PERF: asymmetric returning vector<u8> instead of vector<u64> so it can be moved instead of copying
+      // PERF: asymmetric returning vector<u8> instead of vector<u64> so it can
+      // be moved instead of copying
       auto enc_key_bytes = ar::as_bytes<usize>(enc_key);
 
       auto [format, format_str] = get_file_format(filename);
       // Send payload
       SendFilePayload payload{
-        .file_filler = static_cast<u8>(file_filler),
-        .key_filler = static_cast<u8>(key_filler),
-        .file_size = result->size(),
-        .filename = std::string{filename},
-        .timestamp = get_current_time(),
-        .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
-        .files = std::move(enc_files)
+          .file_filler = static_cast<u8>(file_filler),
+          .key_filler = static_cast<u8>(key_filler),
+          .file_size = result->size(),
+          .filename = std::string{filename},
+          .timestamp = get_current_time(),
+          .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
+          .files = std::move(enc_files)
       };
       client_.connection().write(payload.serialize(user->id));
 
@@ -344,36 +354,36 @@ namespace ar
     if (state_.is_loading())
       gui::OpenPopup(State::loading_overlay_id().data());
 
-    // TODO: The current problem when the overlay state is toggled, it will become None afterward
-    // so it makes next frame unable to show the expected overlay
+    // TODO: The current problem when the overlay state is toggled, it will
+    // become None afterward so it makes next frame unable to show the expected
+    // overlay
 
     // Send file modal
     send_file_modal();
 
     // Client Disconnect Popup
     notification_overlay(State::overlay_state_id(OverlayState::ClientDisconnected),
-                         ICON_FA_CONNECTDEVELOP" Application couldn't make a connection with server"sv,
-                         "Please fill all fields and try again"sv, [this] {
-                           window_.exit();
-                         });
+                         ICON_FA_CONNECTDEVELOP
+                         " Application couldn't make a connection with server"sv,
+                         "Please fill all fields and try again"sv, [this] { window_.exit(); });
 
     // Empty Field Notification
     notification_overlay(State::overlay_state_id(OverlayState::EmptyField),
-                         ICON_FA_STOP" There's some empty field"sv,
+                         ICON_FA_STOP " There's some empty field"sv,
                          "Please fill all fields and try again"sv);
 
     // Internal Error
     notification_overlay(State::overlay_state_id(OverlayState::InternalError),
-                         ICON_FA_STOP" Some error happens"sv,
+                         ICON_FA_STOP " Some error happens"sv,
                          "Please close and open the application again"sv);
 
     notification_overlay(State::overlay_state_id(OverlayState::SendFileFailed),
-                         ICON_FA_STOP" failed to send error on server"sv,
+                         ICON_FA_STOP " failed to send error on server"sv,
                          "Please send the file again"sv);
 
     // Password Different
     notification_overlay(State::overlay_state_id(OverlayState::PasswordDifferent),
-                         ICON_FA_STOP" Password and Confirm Password fields has different value"sv,
+                         ICON_FA_STOP " Password and Confirm Password fields has different value"sv,
                          "Please check and try again"sv);
 
     // Login Failed
@@ -382,11 +392,13 @@ namespace ar
 
     // Register failed
     notification_overlay(State::overlay_state_id(OverlayState::RegisterFailed),
-                         "User with those username already exist"sv, "Please provide different username");
+                         "User with those username already exist"sv,
+                         "Please provide different username");
 
     // File Doesn't  Exists
     notification_overlay(State::overlay_state_id(OverlayState::FileNotExist),
-                         "File provided is not exists or broken"sv, "Please select another file and try again");
+                         "File provided is not exists or broken"sv,
+                         "Please select another file and try again");
 
     // Loading
     loading_overlay(!state_.is_loading());
@@ -399,8 +411,9 @@ namespace ar
 
     gui::SetNextWindowSize({400, 260});
     gui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Always, {0.5f, 0.5f});
-    if (!gui::Begin("Login", nullptr,
-                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+    if (!gui::Begin(
+            "Login", nullptr,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
       return;
 
     static std::string_view login_page = "Login"sv;
@@ -447,9 +460,9 @@ namespace ar
 
     gui::SetNextWindowSize({400, 315});
     gui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Always, {0.5f, 0.5f});
-    if (!gui::Begin("Register", nullptr,
-                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse
-    ))
+    if (!gui::Begin(
+            "Register", nullptr,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
       return;
 
     static std::string_view login_page = "Login"sv;
@@ -509,8 +522,8 @@ namespace ar
     gui::SetNextWindowSize(viewport->WorkSize);
     gui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
     if (gui::Begin("Dashboard", nullptr,
-                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
-                   ImGuiWindowFlags_NoTitleBar))
+                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse
+                       | ImGuiWindowFlags_NoTitleBar))
     {
       gui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.f);
       if (gui::BeginChild("user-online", {viewport->WorkSize.x * 0.25f, 0}, ImGuiChildFlags_Border,
@@ -522,26 +535,26 @@ namespace ar
           gui::EndMenuBar();
         }
 
-        std::ranges::for_each(users_, [this](const UserClient& user) {
-          user_widget(user, resource_manager_);
-        });
+        std::ranges::for_each(
+            users_, [this](const UserClient& user) { user_widget(user, resource_manager_); });
       }
       gui::EndChild();
 
       gui::SameLine(0, 0);
-      if (gui::BeginChild("file list", {
-                            viewport->WorkSize.x * 0.75f - 15.f,
-                            viewport->WorkSize.y - style.WindowPadding.y - 45.f
-                          },
+      if (gui::BeginChild("file list",
+                          {viewport->WorkSize.x * 0.75f - 15.f,
+                           viewport->WorkSize.y - style.WindowPadding.y - 45.f},
                           ImGuiChildFlags_Border))
       {
-        std::ranges::for_each(files_ | std::views::enumerate,
-                              [this](const std::tuple<usize, const FileProperty&>& file) {
-                                const auto& fl = std::get<1>(file);
-                                file_widget(fl, resource_manager_,
-                                            std::bind(&Application::delete_file_on_dashboard, this, std::get<0>(file)),
-                                            std::bind(&Application::open_file_on_dashboard, this, std::get<0>(file)));
-                              });
+        std::ranges::for_each(
+            files_ | std::views::enumerate,
+            [this](const std::tuple<usize, const FileProperty&>& file) {
+              const auto& fl = std::get<1>(file);
+              file_widget(
+                  fl, resource_manager_,
+                  std::bind(&Application::delete_file_on_dashboard, this, std::get<0>(file)),
+                  std::bind(&Application::open_file_on_dashboard, this, std::get<0>(file)));
+            });
       }
       gui::EndChild();
       gui::SetCursorPosY(viewport->WorkSize.y - style.WindowPadding.y - 30.f);
@@ -566,8 +579,10 @@ namespace ar
     auto& style = gui::GetStyle();
 
     ImGui::SetNextWindowSize({viewport->WorkSize.x * 0.7f, viewport->WorkSize.y * 0.5f});
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    if (gui::BeginPopupModal(State::overlay_state_id(OverlayState::SendFile).data(), &is_send_file_modal_open,
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    if (gui::BeginPopupModal(State::overlay_state_id(OverlayState::SendFile).data(),
+                             &is_send_file_modal_open,
                              ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
     {
       if (state_.overlay_state() != OverlayState::SendFile)
@@ -575,8 +590,8 @@ namespace ar
         gui::CloseCurrentPopup();
       }
 
-      if (gui::BeginChild("user-online-select", {viewport->WorkSize.x * 0.25f, 0}, ImGuiChildFlags_Border,
-                          ImGuiWindowFlags_MenuBar))
+      if (gui::BeginChild("user-online-select", {viewport->WorkSize.x * 0.25f, 0},
+                          ImGuiChildFlags_Border, ImGuiWindowFlags_MenuBar))
       {
         if (gui::BeginMenuBar())
         {
@@ -585,13 +600,14 @@ namespace ar
         }
 
         // filter out offline user
-        auto filtered_users = users_
-          | std::views::filter([](const UserClient& user) { return user.is_online; })
-          | std::views::enumerate;
+        auto filtered_users
+            = users_ | std::views::filter([](const UserClient& user) { return user.is_online; })
+              | std::views::enumerate;
         std::ranges::for_each(filtered_users, [this](const std::tuple<usize, UserClient>& data) {
           auto n = std::get<0>(data);
           auto& user = std::get<1>(data);
-          selected_user_ = selectable_user_widget(std::to_string(user.id), user.name, n, resource_manager_);
+          selected_user_
+              = selectable_user_widget(std::to_string(user.id), user.name, n, resource_manager_);
         });
       }
       gui::EndChild();
@@ -600,8 +616,7 @@ namespace ar
 
       if (gui::BeginChild("send_file-right_side", {0, 0}, ImGuiChildFlags_Border))
       {
-        if (gui::BeginChild("send_file-right_side",
-                            {0, ImGui::GetContentRegionAvail().y - 34.f},
+        if (gui::BeginChild("send_file-right_side", {0, ImGui::GetContentRegionAvail().y - 34.f},
                             ImGuiChildFlags_Border))
         {
           auto child_size = gui::GetWindowSize();
@@ -681,7 +696,9 @@ namespace ar
             auto open_dialog_text_size = gui::CalcTextSize(open_dialog_text.data());
 
             gui::SetCursorPosX((child_size.x - drag_here_size.x) * 0.5f);
-            gui::SetCursorPosY((child_size.y - drag_here_size.y - or_text_size.y - open_dialog_text_size.y) * 0.5f);
+            gui::SetCursorPosY(
+                (child_size.y - drag_here_size.y - or_text_size.y - open_dialog_text_size.y)
+                * 0.5f);
             gui::TextUnformatted(drag_here.data());
 
             gui::Spacing();
@@ -698,8 +715,8 @@ namespace ar
         constexpr static std::string_view open_file_text = "Open File"sv;
         constexpr static usize send_text_x_size = 95.f;
         auto open_file_text_size = gui::CalcTextSize(open_file_text.data());
-        gui::SetCursorPosX(
-          gui::GetContentRegionAvail().x - open_file_text_size.x - send_text_x_size - style.WindowPadding.x);
+        gui::SetCursorPosX(gui::GetContentRegionAvail().x - open_file_text_size.x - send_text_x_size
+                           - style.WindowPadding.x);
 
         if (gui::Button(open_file_text.data()))
         {
@@ -801,9 +818,7 @@ namespace ar
 
     if (!user.public_key.is_valid())
     {
-      GetUserDetailsPayload user_details_payload{
-        .id = user.id
-      };
+      GetUserDetailsPayload user_details_payload{.id = user.id};
       client_.connection().write(user_details_payload.serialize());
 
       state_.expect_operation_state(OperationState::GetUserDetails);
@@ -837,30 +852,34 @@ namespace ar
     auto public_key = asymmetric_encryptor_.public_key();
     auto public_key_bytes = ar::serialize(public_key);
 
-    StorePublicKeyPayload key_payload{
-      .public_key = std::move(public_key_bytes)
-    };
+    StorePublicKeyPayload key_payload{.public_key = std::move(public_key_bytes)};
 
     // set current user
     // TODO: get self user detail from server
-    this_user_ = std::make_unique<UserClient>(true, std::numeric_limits<User::id_type>::max(), "me");
+    this_user_
+        = std::make_unique<UserClient>(true, std::numeric_limits<User::id_type>::max(), "me");
     // start thread
     send_file_thread_ = std::thread{&Application::send_file_thread, this};
 
     auto* ucc = new UserClient{true, 123, "mirna"};
     // TODO: Delete this, it is for debug purpose
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 1.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, ucc, "File 2.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 3.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 4.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(), "File 5.png", get_current_time());
     // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
-    //                     "File File File File File File File File File 6.png", get_current_time());
+    // "File 1.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, ucc, "File 2.png",
+    // get_current_time()); files_.emplace_back(FileFormat::Archive, 12345,
+    // this_user_.get(), "File 3.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
+    // "File 4.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
+    // "File 5.png", get_current_time());
+    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
+    //                     "File File File File File File File File File 6.png",
+    //                     get_current_time());
 
     client_.connection().write(key_payload.serialize());
 
     state_.expect_operation_state(OperationState::StorePublicKey);
-    state_.active_loading_overlay(); // make it loading on login page
+    state_.active_loading_overlay();  // make it loading on login page
   }
 
   void Application::register_feedback_handler(const FeedbackPayload& payload) noexcept
@@ -954,7 +973,7 @@ namespace ar
     GetUserOnlinePayload user_online_payload{};
     client_.connection().write(user_online_payload.serialize());
 
-    state_.active_loading_overlay(); // make it loading and still on loading page
+    state_.active_loading_overlay();  // make it loading and still on loading page
     state_.expect_operation_state(OperationState::GetUserOnline);
   }
 
@@ -1011,12 +1030,14 @@ namespace ar
       break;
     }
     case PayloadId::GetUserDetails: {
-      // GetUserDetails payload will only response Feedback when there is error happens
+      // GetUserDetails payload will only response Feedback when there is
+      // error happens
       get_user_details_feedback_handler(payload);
       break;
     }
     case PayloadId::GetUserOnline: {
-      // GetUserOnline payload will only response Feedback when there is error happens
+      // GetUserOnline payload will only response Feedback when there is error
+      // happens
       get_user_online_feedback_handler(payload);
       break;
     }
@@ -1035,16 +1056,19 @@ namespace ar
     }
   }
 
-  void Application::on_file_receive(const Message::Header& header, const SendFilePayload& payload) noexcept
+  void Application::on_file_receive(const Message::Header& header,
+                                    const SendFilePayload& payload) noexcept
   {
     // Decrypt key
     auto decipher_key_result = asymmetric_encryptor_.decrypts(payload.symmetric_key);
     if (!decipher_key_result.has_value())
     {
-      Logger::error(fmt::format("failed to decrypt symmetric key: {}", decipher_key_result.error()));
+      Logger::error(
+          fmt::format("failed to decrypt symmetric key: {}", decipher_key_result.error()));
       return;
     }
-    auto decipher_key_bytes = as_bytes<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
+    auto decipher_key_bytes
+        = as_bytes<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
     if (decipher_key_bytes.size() != KEY_BYTE)
     {
       Logger::error("decrypted key is malformed");
@@ -1057,7 +1081,8 @@ namespace ar
     auto decipher_file_result = symmetric_encryptor.decrypts(payload.files, payload.file_filler);
     if (!decipher_file_result.has_value())
     {
-      Logger::error(fmt::format("failed to decrypt incoming file: {}", decipher_file_result.error()));
+      Logger::error(
+          fmt::format("failed to decrypt incoming file: {}", decipher_file_result.error()));
       return;
     }
     if (decipher_file_result->size() != payload.file_size)
@@ -1080,9 +1105,11 @@ namespace ar
       auto [format, format_str] = get_file_format(payload.filename);
       {
         // get user opponent
-        std::unique_lock lock2{user_mutex_}; // FIX: use shared_mutex for user so it can be read by multiple thread
+        std::unique_lock lock2{user_mutex_};  // FIX: use shared_mutex for user so
+        // it can be read by multiple thread
 
-        auto it = std::ranges::find_if(users_, [&](const UserClient& uc) { return uc.id == header.opponent_id; });
+        auto it = std::ranges::find_if(
+            users_, [&](const UserClient& uc) { return uc.id == header.opponent_id; });
         if (it == users_.end())
         {
           // WARN: it should be UB here
@@ -1090,7 +1117,8 @@ namespace ar
           return;
         }
 
-        files_.emplace_back(format, payload.file_size, &*it, dest_path.string(), get_current_time());
+        files_.emplace_back(format, payload.file_size, &*it, dest_path.string(),
+                            get_current_time());
       }
     }
   }
@@ -1099,14 +1127,16 @@ namespace ar
   {
     std::unique_lock lock{user_mutex_};
     // search if user already on database (offline)
-    auto offline_users = users_ | std::views::filter([](const UserClient& uc) { return !uc.is_online; });
+    auto offline_users
+        = users_ | std::views::filter([](const UserClient& uc) { return !uc.is_online; });
     if (offline_users.empty())
     {
       users_.emplace_back(true, payload.id, payload.username);
       return;
     }
     // toggle is_online
-    auto it = std::ranges::find_if(offline_users, [&](const UserClient& uc) { return uc.id == payload.id; });
+    auto it = std::ranges::find_if(offline_users,
+                                   [&](const UserClient& uc) { return uc.id == payload.id; });
     if (it == offline_users.end())
     {
       users_.emplace_back(true, payload.id, payload.username);
@@ -1118,11 +1148,15 @@ namespace ar
   void Application::on_user_logout(const UserLogoutPayload& payload) noexcept
   {
     std::unique_lock lock{user_mutex_};
-    // std::erase_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
-    auto it = std::ranges::find_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
+    // std::erase_if(users_, [&](const UserClient& user) { return user.id ==
+    // payload.id; });
+    auto it = std::ranges::find_if(users_,
+                                   [&](const UserClient& user) { return user.id == payload.id; });
     if (it == users_.end())
     {
-      Logger::warn("got signal user logout, but the user doesn't exists on client database");
+      Logger::warn(
+          "got signal user logout, but the user doesn't exists on "
+          "client database");
       return;
     }
     // set to offline
@@ -1139,7 +1173,8 @@ namespace ar
 
     {
       std::unique_lock lock{user_mutex_};
-      auto it = std::ranges::find_if(users_, [&](const UserClient& user) { return user.id == payload.id; });
+      auto it = std::ranges::find_if(users_,
+                                     [&](const UserClient& user) { return user.id == payload.id; });
       if (it == users_.end())
       {
         Logger::error(fmt::format("got user detail, but the user is not on the list: {}|{}",
@@ -1193,4 +1228,4 @@ namespace ar
     state_.disable_loading_overlay();
     state_.active_page(PageState::Dashboard);
   }
-}
+}  // namespace ar

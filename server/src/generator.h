@@ -1,6 +1,7 @@
 #pragma once
-#include <utility>
+
 #include <atomic>
+#include <utility>
 
 namespace ar
 {
@@ -8,22 +9,24 @@ namespace ar
   class IdGenerator
   {
   public:
-    IdGenerator() :
-      m_val{0}
+    IdGenerator()
+        : val_{0}
     {
     }
 
-    IdGenerator(T val) :
-      m_val{val}
+    IdGenerator(T val)
+        : val_{val}
     {
     }
 
-    T gen() noexcept
+    T gen()
+
+        noexcept
     {
-      return m_val.fetch_add(1);
+      return val_.fetch_add(1);
     }
 
   private:
-    std::atomic<T> m_val;
+    std::atomic<T> val_;
   };
-}
+}  // namespace ar

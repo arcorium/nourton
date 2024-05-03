@@ -1,9 +1,9 @@
 #include "logger.h"
 
 #include <fmt/chrono.h>
+#include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/std.h>
-#include <fmt/color.h>
 
 #include <thread>
 
@@ -69,8 +69,8 @@ namespace ar
     set_thread_name(std::move(name), std::this_thread::get_id());
   }
 
-  void Logger::log(Level level, std::string_view type,
-                   std::string_view val, const std::source_location& sl)
+  void Logger::log(Level level, std::string_view type, std::string_view val,
+                   const std::source_location& sl)
   {
     if (level < s_level)
       return;
@@ -80,7 +80,7 @@ namespace ar
     if (s_thread_names.contains(id))
       thread = s_thread_names[id];
 
-    fmt::println("[{:^8}] {} |{:^8}| '{}' => {}", thread, std::chrono::system_clock::now(),
-                 type, get_function_name(sl.function_name()), val);
+    fmt::println("[{:^8}] {} |{:^8}| '{}' => {}", thread, std::chrono::system_clock::now(), type,
+                 get_function_name(sl.function_name()), val);
   }
-} // namespace ar
+}  // namespace ar

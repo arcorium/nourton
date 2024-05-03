@@ -1,14 +1,13 @@
 #pragma once
-#include <string_view>
 
 #include <asio/awaitable.hpp>
 #include <asio/execution_context.hpp>
 #include <asio/ip/tcp.hpp>
+#include <string_view>
 
 #include "connection.h"
-
-#include "util/types.h"
 #include "util/asio.h"
+#include "util/types.h"
 
 namespace ar
 {
@@ -17,8 +16,10 @@ namespace ar
   class Client
   {
   public:
-    Client(asio::any_io_executor executor, asio::ip::address address, u16 port, IEventHandler* event_handler) noexcept;
-    Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint, IEventHandler* event_handler) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::address address, u16 port,
+           IEventHandler* event_handler) noexcept;
+    Client(asio::any_io_executor executor, asio::ip::tcp::endpoint endpoint,
+           IEventHandler* event_handler) noexcept;
     ~Client() noexcept;
 
     Client(const Client&) = delete;
@@ -63,4 +64,4 @@ namespace ar
   {
     return std::forward<Self>(self).executor_;
   }
-}
+}  // namespace ar

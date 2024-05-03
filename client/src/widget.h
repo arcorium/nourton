@@ -3,7 +3,6 @@
 #include <string_view>
 
 #include "imgui_internal.h"
-
 #include "util/imgui.h"
 
 namespace ar
@@ -31,10 +30,10 @@ namespace ar
     const float updated_indicator_radius = indicator_radius - 4.0f * circle_radius;
     const ImRect bb(pos, ImVec2(pos.x + indicator_radius * 2.0f, pos.y + indicator_radius * 2.0f));
     ImGui::ItemSize(bb);
+
     if (!ImGui::ItemAdd(bb, id))
-    {
       return;
-    }
+
     const float t = g.Time;
     const auto degree_offset = 2.0f * IM_PI / circle_count;
     for (int i = 0; i < circle_count; ++i)
@@ -47,9 +46,9 @@ namespace ar
       color.y = main_color.y * growth + backdrop_color.y * (1.0f - growth);
       color.z = main_color.z * growth + backdrop_color.z * (1.0f - growth);
       color.w = 1.0f;
-      window->DrawList->AddCircleFilled(ImVec2(pos.x + indicator_radius + x,
-                                               pos.y + indicator_radius - y),
-                                        circle_radius + growth * circle_radius, ImGui::GetColorU32(color));
+      window->DrawList->AddCircleFilled(
+          ImVec2(pos.x + indicator_radius + x, pos.y + indicator_radius - y),
+          circle_radius + growth * circle_radius, ImGui::GetColorU32(color));
     }
   }
 
@@ -66,26 +65,29 @@ namespace ar
   }
 
   static bool input_text(const char* label, std::string& buffer, ImGuiInputFlags flags = 0,
-                         ImGuiInputTextCallback callback = nullptr, void* user_data = nullptr) noexcept
+                         ImGuiInputTextCallback callback = nullptr,
+                         void* user_data = nullptr) noexcept
   {
     flags |= ImGuiInputTextFlags_CallbackResize;
-    InputTextCallback_UserData cb_user_data{
-      .Str = buffer,
-      .ChainCallback = callback,
-      .ChainCallbackUserData = user_data
-    };
+    InputTextCallback_UserData cb_user_data{.Str = buffer,
+                                            .ChainCallback = callback,
+                                            .ChainCallbackUserData = user_data};
 
     return ImGui::InputText(label, buffer.data(), buffer.capacity() + 1, flags, input_text_callback,
                             &cb_user_data);
   }
 
-  constexpr void empty_button_callback() noexcept {}
+  constexpr void empty_button_callback() noexcept
+  {
+  }
 
   template <std::invocable F = decltype(empty_button_callback)>
   static void notification_overlay(std::string_view id, std::string_view line_1,
-                                   std::string_view line_2 = {}, F&& button_callback = empty_button_callback) noexcept
+                                   std::string_view line_2 = {},
+                                   F&& button_callback = empty_button_callback) noexcept
   {
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing,
+                            ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(id.data(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
       ImGui::Text(line_1.data());
@@ -102,10 +104,11 @@ namespace ar
 
   static void loading_overlay(bool is_close) noexcept
   {
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetWorkCenter(), ImGuiCond_Appearing,
+                            ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(State::loading_overlay_id().data(), nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration |
-                               ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove))
+                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration
+                                   | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove))
     {
       loading_widget("Loading...", 72.f, ImVec4{0.537f, 0.341f, 0.882f, 1.f},
                      ImVec4{0.38f, 0.24f, 0.64f, 1.f}, 14, 4.0f);
@@ -194,8 +197,8 @@ namespace ar
   // 1 = sender
   // 2 = timestamp
   template <std::invocable CloseFn, std::invocable CardFn>
-  static void file_widget(const FileProperty& property, ResourceManager& resource_manager, CloseFn&& close_fn,
-                          CardFn&& card_fn) noexcept
+  static void file_widget(const FileProperty& property, ResourceManager& resource_manager,
+                          CloseFn&& close_fn, CardFn&& card_fn) noexcept
   {
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 10.f);
 
@@ -265,7 +268,8 @@ namespace ar
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_Button));
 
       // Sender label
-      ImGui::SameLine(ImGui::GetWindowWidth() - text_size.x - time_size.x - style.WindowPadding.x * 4.f);
+      ImGui::SameLine(ImGui::GetWindowWidth() - text_size.x - time_size.x
+                      - style.WindowPadding.x * 4.f);
       ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y + 4.f);
       ImGui::Button(sender.data());
 
@@ -280,10 +284,8 @@ namespace ar
       // Invisible Button
       ImGui::SetNextItemAllowOverlap();
       ImGui::SetCursorPos({0.f, 0.f});
-      auto size = ImVec2{
-        ImGui::GetWindowWidth() - style.WindowPadding.x,
-        ImGui::GetWindowHeight() - style.WindowPadding.y
-      };
+      auto size = ImVec2{ImGui::GetWindowWidth() - style.WindowPadding.x,
+                         ImGui::GetWindowHeight() - style.WindowPadding.y};
       if (ImGui::InvisibleButton(fmt::format("{}#btn", filename).data(), size))
       {
         if (!is_me)
@@ -298,4 +300,4 @@ namespace ar
     ImGui::EndChild();
     ImGui::PopStyleVar();
   }
-}
+}  // namespace ar

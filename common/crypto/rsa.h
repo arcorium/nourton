@@ -1,9 +1,9 @@
 #pragma once
 
+#include <util/types.h>
+
 #include <expected>
 #include <span>
-
-#include <util/types.h>
 
 namespace ar
 {
@@ -40,7 +40,8 @@ namespace ar
     std::expected<block_enc_type, std::string_view> encrypt(block_type block) noexcept;
     std::tuple<usize, std::vector<RSA::block_enc_type>> encrypts(std::span<u8> bytes) noexcept;
     block_type decrypt(block_enc_type block) noexcept;
-    std::expected<std::vector<RSA::block_type>, std::string_view> decrypts(std::span<u8> bytes) noexcept;
+    std::expected<std::vector<RSA::block_type>, std::string_view> decrypts(
+        std::span<u8> bytes) noexcept;
 
     [[nodiscard]] _public_key public_key() const noexcept;
     [[nodiscard]] _private_key private_key() const noexcept;
@@ -54,5 +55,6 @@ namespace ar
   };
 
   std::vector<u8> serialize(const RSA::_public_key& key) noexcept;
-  std::expected<RSA::_public_key, std::string_view> deserialize_rsa(std::span<const u8> bytes) noexcept;
-}
+  std::expected<RSA::_public_key, std::string_view> deserialize_rsa(
+      std::span<const u8> bytes) noexcept;
+}  // namespace ar

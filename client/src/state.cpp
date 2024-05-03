@@ -1,25 +1,30 @@
 #include "state.h"
 
-#include <map>
-
 #include <util/enum.h>
+
+#include <map>
 
 namespace ar
 {
   std::map<OverlayState, std::string_view> State::OVERLAY_NAME_IDS = {
-    std::make_pair(OverlayState::InternalError, "Internal Error"),
-    std::make_pair(OverlayState::ClientDisconnected, "Client Disconnected"),
-    std::make_pair(OverlayState::EmptyField, "Missing Field"),
-    std::make_pair(OverlayState::PasswordDifferent, "Password doesn't match"),
-    std::make_pair(OverlayState::LoginFailed, "Login Failed"),
-    std::make_pair(OverlayState::RegisterFailed, "Register Failed"),
-    std::make_pair(OverlayState::SendFile, "Send File##2"),
-    std::make_pair(OverlayState::SendFileFailed, "Send File Failed"),
-    std::make_pair(OverlayState::FileNotExist, "File Doesn't Exist"),
+      std::make_pair(OverlayState::InternalError, "Internal Error"),
+      std::make_pair(OverlayState::ClientDisconnected, "Client Disconnected"),
+      std::make_pair(OverlayState::EmptyField, "Missing Field"),
+      std::make_pair(OverlayState::PasswordDifferent, "Password doesn't match"),
+      std::make_pair(OverlayState::LoginFailed, "Login Failed"),
+      std::make_pair(OverlayState::RegisterFailed, "Register Failed"),
+      std::make_pair(OverlayState::SendFile, "Send File##2"),
+      std::make_pair(OverlayState::SendFileFailed, "Send File Failed"),
+      std::make_pair(OverlayState::FileNotExist, "File Doesn't Exist"),
   };
 
   State::State(PageState state, OverlayState overlay_state) noexcept
-    : is_loading_{false}, page_state_{state}, overlay_state_{overlay_state}, last_overlay_state_{OverlayState::None} {}
+      : is_loading_{false},
+        page_state_{state},
+        overlay_state_{overlay_state},
+        last_overlay_state_{OverlayState::None}
+  {
+  }
 
   void State::active_page(PageState state) noexcept
   {
@@ -98,4 +103,4 @@ namespace ar
   {
     return is_loading_;
   }
-}
+}  // namespace ar

@@ -27,7 +27,7 @@ namespace ar
     FileNotExist,
   };
 
-  enum class OperationState: u8
+  enum class OperationState : u8
   {
     None,
     Login,
@@ -55,7 +55,8 @@ namespace ar
 
     void expect_operation_state(OperationState state) noexcept;
     void operation_state(OperationState state) noexcept;
-    // set current operation state into expected one and make the expected one into none
+    // set current operation state into expected one and make the expected one
+    // into none
     void operation_state_complete() noexcept;
 
     [[nodiscard]] PageState page_state() const noexcept;
@@ -68,7 +69,8 @@ namespace ar
     [[nodiscard]] OperationState expected_operation_state() const noexcept;
 
     /**
-     * get current overlay state and set it into OverlayState::None afterward indirectly
+     * get current overlay state and set it into OverlayState::None afterward
+     * indirectly
      * @return current active overlay state
      */
     [[nodiscard]] OverlayState toggle_overlay_state() noexcept;
@@ -86,6 +88,6 @@ namespace ar
     OverlayState last_overlay_state_;
     // State for operation
     OperationState current_operation_state_;
-    OperationState expected_operation_state_; // waiting operation state
+    OperationState expected_operation_state_;  // waiting operation state
   };
-}
+}  // namespace ar
