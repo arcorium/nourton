@@ -16,7 +16,7 @@
 
 namespace ar
 {
-  static std::expected<ImageProperties, std::string_view> load_image(
+  static std::expected<ImageProperties, std::string_view> upload_texture(
       std::string_view filepath) noexcept
   {
     int x, y;
@@ -45,10 +45,10 @@ namespace ar
                                                                 static_cast<usize>(y));
   }
 
-  bool ResourceManager::load_texture(std::string_view filename) noexcept
+  bool ResourceManager::load_image(std::string_view filename) noexcept
   {
     std::string filepath = std::string{image_dir} + filename.data();
-    auto res = load_image(filepath);
+    auto res = upload_texture(filepath);
     if (!res.has_value())
     {
       return false;
@@ -78,8 +78,9 @@ namespace ar
     if (!textures_.contains(std::string{name}))
     {
       // load
-      if (!load_texture(name))
-        std::unexpected(fmt::format("failed to load texture: {}", name));
+      if (!load_image(name))
+        // WARN: string lifetime is on function scope, so it should return std::string instead
+        ar::unexpected<std::string_view>(fmt::format("failed to load texture: {}", name));
     }
     return ar::make_expected<image_type, std::string_view>(textures_[std::string{name}]);
   }

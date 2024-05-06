@@ -18,4 +18,4 @@ add_executable(nourton-client
   src/util/safe.h
 )
 
-target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font tinyfd)
+target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font tinyfd stb)

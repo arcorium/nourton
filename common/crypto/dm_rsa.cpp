@@ -227,8 +227,8 @@ namespace ar
 
   std::vector<u8> serialize(const DMRSA::_public_key& key) noexcept
   {
-    auto n1_bytes = as_bytes(key.n1);
-    auto n2_bytes = as_bytes(key.n2);
+    auto n1_bytes = as_byte_span(key.n1);
+    auto n2_bytes = as_byte_span(key.n2);
     auto e1_bytes = as_span<u8, DMRSA::prime_type>(key.e1);
     auto e2_bytes = as_span<u8, DMRSA::prime_type>(key.e2);
 

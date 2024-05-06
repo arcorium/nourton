@@ -279,7 +279,7 @@ namespace ar
 
       // PERF: asymmetric returning vector<u8> instead of vector<u64> so it can
       // be moved instead of copying
-      auto enc_key_bytes = ar::as_bytes<usize>(enc_key);
+      auto enc_key_bytes = ar::as_byte_span<usize>(enc_key);
 
       auto [format, format_str] = get_file_format(filename);
       // Send payload
@@ -1050,7 +1050,7 @@ namespace ar
       return;
     }
     auto decipher_key_bytes
-        = as_bytes<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
+        = as_byte_span<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
     if (decipher_key_bytes.size() != KEY_BYTE)
     {
       Logger::error("decrypted key is malformed");

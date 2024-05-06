@@ -93,12 +93,12 @@ namespace ar
   }
 
   template <typename T>
-  constexpr std::span<u8> as_bytes(std::span<T> val, usize end_offset = 0) noexcept
+  constexpr std::span<u8> as_byte_span(std::span<T> val, usize end_offset = 0) noexcept
   {
     return std::span<u8>{reinterpret_cast<u8*>(val.data()), val.size_bytes() - end_offset};
   }
 
-  constexpr std::array<u8, 16> as_bytes(const u128& val) noexcept
+  constexpr std::array<u8, 16> as_byte_span(const u128& val) noexcept
   {
     usize size = val.backend().size();
     auto limbs = val.backend().limbs();

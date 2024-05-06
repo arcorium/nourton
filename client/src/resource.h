@@ -38,7 +38,7 @@ namespace ar
     void load_font(std::string_view filename, ImFontConfig* config, ImWchar const* ranges,
                    Arg... sizes) noexcept;
 
-    bool load_texture(std::string_view filename) noexcept;
+    bool load_image(std::string_view filename) noexcept;
 
     font_type font(std::string_view name, float size) noexcept;
     std::expected<image_type, std::string_view> image(std::string_view name) noexcept;

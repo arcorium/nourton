@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies": [
+    "fmt",
+    "magic-enum",
+    "alpaca",
+    "asio",
+    "argparse",
+    "glfw3",
+    "gtest",
+    "benchmark",
+    "boost-multiprecision"
+  ]
+}

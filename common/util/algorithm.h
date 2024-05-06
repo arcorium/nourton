@@ -3,6 +3,7 @@
 #include <primesieve.hpp>
 #include <random>
 #include <string_view>
+#include <array>
 
 #include "types.h"
 

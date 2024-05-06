@@ -150,7 +150,7 @@ namespace ar
 
   std::vector<u8> serialize(const RSA::_public_key& key) noexcept
   {
-    auto n_bytes = as_bytes(key.n);
+    auto n_bytes = as_byte_span(key.n);
     auto e_bytes = as_span<u8, RSA::prime_type>(key.e);
 
     std::vector<u8> result{};
