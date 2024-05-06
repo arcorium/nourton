@@ -38,7 +38,7 @@ using i128 = boost::multiprecision::int128_t;
 using i256 = boost::multiprecision::int256_t;
 using i512 = boost::multiprecision::int512_t;
 
-static_assert(sizeof(u128) & sizeof(i128));
+// static_assert(sizeof(u128) & sizeof(i128));
 
 // concept
 namespace ar

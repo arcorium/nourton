@@ -129,7 +129,7 @@ namespace ar
   {
     constexpr static ImVec4 GREEN_COLOR = color_from_hex(0x86ae63FF);
     constexpr static ImVec4 RED_COLOR = color_from_hex(0xe34844ff);
-    static auto image_prop = resource_manager.image("profile-user_32.png").value();
+    static auto image_prop = resource_manager.image("profile-user_32-inverted.png").value();
 
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 18.f);
     if (ImGui::BeginChild(user.id, {0.f, 40.f}, ImGuiChildFlags_Border))
@@ -160,7 +160,7 @@ namespace ar
   {
     static int selected_radio = 0;
 
-    static auto image_prop = resource_manager.image("profile-user_32.png").value();
+    static auto image_prop = resource_manager.image("profile-user_32-inverted.png").value();
 
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 18.f);
     if (ImGui::BeginChild(id.data(), {0.f, 46.f}, ImGuiChildFlags_Border))

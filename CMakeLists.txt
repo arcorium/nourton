@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.15)
 
 if (MSVC)
   if (POLICY CMP0091)
@@ -6,21 +6,25 @@ if (MSVC)
   endif ()
 
   # Enable Hot Reload for MSVC compilers if supported.
-  if (POLICY CMP0141)
-    cmake_policy(SET CMP0141 NEW)
-    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-  endif ()
+  #  if (POLICY CMP0141)
+  #    cmake_policy(SET CMP0141 NEW)
+  #    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+  #  endif ()
 endif ()
 
 if (WIN32)
   set(VCPKG_TARGET_TRIPLET x64-windows-static)
+elseif (UNIX)
+  set(VCPKG_TARGET_TRIPLET x64-linux)
 endif ()
 
 project(nourton)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if (WIN32)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif ()
 
 option(ENABLE_TESTING OFF)
 option(ENABLE_INSTALL OFF)

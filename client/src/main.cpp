@@ -20,7 +20,7 @@ void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
       .scan<'u', u16>()
       .default_value(1291_u16);
   program.add_argument("-d", "--dir")
-      .help("location to save the file")
+      .help("location to save the received file")
       .default_value((std::filesystem::current_path() / "files").string());
 
   program.parse_args(argc, argv);

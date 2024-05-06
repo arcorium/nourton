@@ -36,6 +36,8 @@ namespace ar
     void exit() noexcept;
 
   private:
+    void styling(ImGuiStyle& style) noexcept;
+
     void send_file_thread() noexcept;
 
     void draw() noexcept;
