@@ -31,8 +31,6 @@ int main(int argc, char* argv[])
   constexpr static usize thread_num = 5;
   asio::thread_pool context{thread_num};
 
-  auto guard = asio::make_work_guard(context);
-
   // CLI
   argparse::ArgumentParser program{std::string{PROGRAM_SERVER_NAME}, std::string{PROGRAM_VERSION}};
   cli(program, argc, argv);

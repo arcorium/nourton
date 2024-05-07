@@ -32,7 +32,6 @@ namespace ar
   private:
     asio::awaitable<void> connection_acceptor() noexcept;
 
-    void connection_handler(const asio::error_code& ec, asio::ip::tcp::socket&& socket) noexcept;
     User* login_message_handler(Connection& conn, const LoginPayload& payload) noexcept;
     bool register_message_handler(RegisterPayload&& payload) noexcept;
 

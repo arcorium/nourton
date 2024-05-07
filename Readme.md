@@ -29,7 +29,7 @@ that aren't defined on vcpkg.json are located on `/thirdparty` folder, they are:
 
 ## Build
 
-if you doesn't have vcpkg installed consider to get the vcpkg first by:
+If you doesn't have vcpkg installed consider to get the vcpkg first by:
 
 ```cmd
 > git clone https://github.com/microsoft/vcpkg
@@ -45,14 +45,14 @@ Build project using cmake (change `VCPKG_ROOT` with vcpkg path installation):
 
 ```cmd
 > cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE={VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
-> cmake --build build
+> cmake --build build --target install
 ```
 
 If you just cloned the vcpkg on this directory, then it will become like this:
 
 ```cmd
 > cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
-> cmake --build build
+> cmake --build build --target install
 ```
 
 You can clang or gcc as compiler with setting the `-DCMAKE_C_COMPILER=[gcc|clang]`
@@ -60,11 +60,19 @@ and `-DCMAKE_CXX_COMPILER=[g++|clang++]`:
 
 ```cmd
 > cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-> cmake --build build
+> cmake --build build --target install
+```
+
+For multi-configuration generators, add `--config Release` when building. Like this:
+
+```cmd
+> cmake --build build --target install --config Release
 ```
 
 **NOTE:** If you want to use global vcpkg you can delete `vcpkg.json` file, so it will not try to build all the
-dependencies again
+dependencies again.
+
+Application binaries can be found at `./build/nourton` directory, unless you set the directory installation by yourself.
 
 ## Usage
 
@@ -74,7 +82,7 @@ Run the server with:
 > ./nourton-server [--ip xx.xx.xx.xx] [--port xxxx]
 ```
 
-if the ip or port argument is not defined, it will use the default value. you can see the default value by:
+If the ip or port argument is not defined, it will use the default value. you can see the default value by:
 
 ```cmd
 > ./nourton-server --help
@@ -86,7 +94,7 @@ Run the client:
 > ./nourton-client [--ip xx.xx.xx.xx] [--port xxxx] [--dir ./files]
 ```
 
-if one of argument is not defined, it will use the default value like on the server. you can see the default value by:
+If one of argument is not defined, it will use the default value like on the server. you can see the default value by:
 
 ```cmd
 > ./nourton-client --help

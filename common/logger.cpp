@@ -14,7 +14,7 @@ namespace ar
 {
   static constexpr std::string_view get_function_name(std::string_view func_) noexcept
   {
-    auto idx = func_.find("__cdecl");
+    auto idx = func_.find("__cdecl");  // callconv
     if (idx == std::string_view::npos)
       return "error"sv;
 
@@ -72,6 +72,7 @@ namespace ar
   void Logger::log(Level level, std::string_view type, std::string_view val,
                    const std::source_location& sl)
   {
+#ifndef AR_NO_LOG
     if (level < s_level)
       return;
 
@@ -82,5 +83,6 @@ namespace ar
 
     fmt::println("[{:^8}] {} |{:^8}| '{}' => {}", thread, std::chrono::system_clock::now(), type,
                  get_function_name(sl.function_name()), val);
+#endif
   }
 }  // namespace ar

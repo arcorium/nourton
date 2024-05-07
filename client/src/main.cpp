@@ -1,4 +1,6 @@
 // #define ASIO_NO_DEPRECATED
+#include "application.h"
+
 #include <GLFW/glfw3.h>
 
 #include <argparse/argparse.hpp>
@@ -33,11 +35,12 @@ int main(int argc, char* argv[])
   if (!res)
     return -1;
 
+  ar::Logger::set_current_thread_name("MAIN");
+
   if constexpr (!AR_DEBUG)
   {
-    ar::Logger::set_minimum_level(ar::Logger::Level::Info);
+    ar::Logger::set_minimum_level(ar::Logger::Level::Warn);
   }
-  ar::Logger::set_current_thread_name("MAIN");
 
   argparse::ArgumentParser program{std::string{PROGRAM_CLIENT_NAME}, std::string{PROGRAM_VERSION}};
   cli(program, argc, argv);
@@ -46,15 +49,15 @@ int main(int argc, char* argv[])
   // HACK: prevent io to stop when there is no async action
   auto guard = asio::make_work_guard(context);
 
-  int* a = nullptr;
   ar::Window window{"nourton client", 800, 800};
 
   auto ip_str = program.get<std::string>("-i");
   auto save_dir = program.get<std::string>("-d");
   auto port = program.get<u16>("-p");
 
+  // check if ip provided is valid
   asio::error_code ec;
-  auto ip = asio::ip::make_address_v4(ip_str, ec);
+  asio::ip::make_address_v4(ip_str, ec);
   if (ec)
     ar::Logger::critical(fmt::format("could not connect to ip: {}", ip_str));
 

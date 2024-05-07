@@ -341,23 +341,6 @@ namespace ar
     }
   }
 
-  void Server::connection_handler(const asio::error_code& ec,
-                                  asio::ip::tcp::socket&& socket) noexcept
-  {
-    if (ec)
-    {
-      Logger::warn(fmt::format("error on accept connection: {}", ec.message()));
-      start();
-      return;
-    }
-
-    auto conn = Connection::make_shared(std::forward<asio::ip::tcp::socket>(socket), this, this);
-    Logger::info(fmt::format("new connection with id: {}", conn->id()));
-    conn->start();
-    connections_.push_back(std::move(conn));
-    start();
-  }
-
   User* Server::login_message_handler(Connection& conn, const LoginPayload& payload) noexcept
   {
     const auto user = std::ranges::find_if(

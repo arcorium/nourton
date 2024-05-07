@@ -18,7 +18,13 @@ elseif (UNIX)
   set(VCPKG_TARGET_TRIPLET x64-linux)
 endif ()
 
+
 project(nourton)
+
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  message("--nourton--: installation is set on " ${CMAKE_CURRENT_BINARY_DIR}/nourton)
+  set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/nourton CACHE PATH "install prefix" FORCE)
+endif ()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -28,6 +34,7 @@ endif ()
 
 option(BUILD_TEST OFF)
 option(BUILD_BENCH OFF)
+option(ENABLE_INSTALL "install" ON)
 
 add_subdirectory(thirdparty)
 
@@ -41,4 +48,13 @@ endif ()
 
 if (BUILD_BENCH)
   add_subdirectory(bench)
+endif ()
+
+if (ENABLE_INSTALL)
+  message(" --nourton--: Install enabled")
+  install(TARGETS nourton-client nourton-server DESTINATION .)
+  if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    install(DIRECTORY ./resource DESTINATION .)
+  endif ()
+  #    RUNTIME DESTINATION ./result)
 endif ()

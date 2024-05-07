@@ -44,13 +44,8 @@ namespace ar
     std::expected<image_type, std::string_view> image(std::string_view name) noexcept;
 
   private:
-#if AR_DEBUG
-    constexpr static std::string_view font_dir{"../../resource/font/"sv};
-    constexpr static std::string_view image_dir{"../../resource/image/"sv};
-#else
     constexpr static std::string_view font_dir{"resource/font/"sv};
     constexpr static std::string_view image_dir{"resource/image/"sv};
-#endif
 
     std::unordered_map<usize, font_type> fonts_;
     container_type<image_type> textures_;
