@@ -26,9 +26,8 @@ if (WIN32)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif ()
 
-option(ENABLE_TESTING OFF)
-option(ENABLE_INSTALL OFF)
-option(ENABLE_BENCH ON)
+option(BUILD_TEST OFF)
+option(BUILD_BENCH OFF)
 
 add_subdirectory(thirdparty)
 
@@ -36,14 +35,10 @@ add_subdirectory(common)
 add_subdirectory(client)
 add_subdirectory(server)
 
-if (ENABLE_TESTING)
+if (BUILD_TEST)
   add_subdirectory(test)
 endif ()
 
-if (ENABLE_BENCH)
+if (BUILD_BENCH)
   add_subdirectory(bench)
-endif ()
-
-if (ENABLE_INSTALL)
-  # TODO: Implement
 endif ()

@@ -84,7 +84,7 @@ namespace ar
       }
 
       conn.user(user);
-      FeedbackPayload resp{PayloadId::Login, user != nullptr, std::nullopt};
+      FeedbackPayload resp{PayloadId::Login, user != nullptr, {}};
       conn.write(resp.serialize());
       break;
     }
@@ -111,7 +111,7 @@ namespace ar
           Logger::info(fmt::format("connection-{} registered successfully with username: {}",
                                    conn.id(), payload.username));
       }
-      FeedbackPayload resp{PayloadId::Register, result, std::nullopt};
+      FeedbackPayload resp{PayloadId::Register, result, {}};
       conn.write(resp.serialize());
       break;
     }
@@ -387,8 +387,8 @@ namespace ar
     if (user != users_.end())
       return false;
     users_.emplace_back(std::make_unique<User>(user_id_generator_.gen(),
-                                                std::move(payload.username),
-                                                std::move(payload.password), std::vector<u8>{}));
+                                               std::move(payload.username),
+                                               std::move(payload.password), std::vector<u8>{}));
     return true;
   }
 

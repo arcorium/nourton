@@ -19,3 +19,6 @@ add_executable(nourton-client
 )
 
 target_link_libraries(nourton-client PUBLIC imgui nourton-common glad icon_font tinyfd stb)
+
+# copy resource dir
+add_custom_command(TARGET nourton-client POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resource $<TARGET_FILE_DIR:nourton-client>/resource)

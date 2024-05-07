@@ -359,7 +359,8 @@ namespace ar
   {
     PayloadId id;
     bool response;
-    std::optional<std::string> message;
+    // std::optional<std::string> message;
+    std::string message;
 
     [[nodiscard]] Message serialize(User::id_type sender_id = 0) const noexcept
     {

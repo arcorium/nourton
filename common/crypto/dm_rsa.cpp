@@ -233,10 +233,15 @@ namespace ar
     auto e2_bytes = as_span<u8, DMRSA::prime_type>(key.e2);
 
     std::vector<u8> result{};
-    result.append_range(e1_bytes);
-    result.append_range(e2_bytes);
-    result.append_range(n1_bytes);
-    result.append_range(n2_bytes);
+    // result.append_range(e1_bytes);
+    // result.append_range(e2_bytes);
+    // result.append_range(n1_bytes);
+    // result.append_range(n2_bytes);
+
+    result.insert(result.end(), e1_bytes.begin(), e1_bytes.end());
+    result.insert(result.end(), e2_bytes.begin(), e2_bytes.end());
+    result.insert(result.end(), n1_bytes.begin(), n1_bytes.end());
+    result.insert(result.end(), n2_bytes.begin(), n2_bytes.end());
     return result;
   }
 

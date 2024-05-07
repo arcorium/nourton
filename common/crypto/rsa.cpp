@@ -1,3 +1,4 @@
+
 #include "rsa.h"
 
 #include <fmt/format.h>
@@ -154,8 +155,11 @@ namespace ar
     auto e_bytes = as_span<u8, RSA::prime_type>(key.e);
 
     std::vector<u8> result{};
-    result.append_range(e_bytes);
-    result.append_range(n_bytes);
+    // result.append_range(e_bytes);
+    // result.append_range(n_bytes);
+
+    result.insert(result.end(), e_bytes.begin(), e_bytes.end());
+    result.insert(result.end(), n_bytes.begin(), n_bytes.end());
     return result;
   }
 

@@ -56,7 +56,7 @@ TEST(rsa, encrypt_bytes)
   EXPECT_EQ(cipher.size(),
             message_bytes.size() / ar::size_of<ar::RSA::block_type>() + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
-  auto cipher_bytes = ar::as_bytes<ar::RSA::block_enc_type>(cipher);
+  auto cipher_bytes = ar::as_byte_span<ar::RSA::block_enc_type>(cipher);
   EXPECT_EQ(cipher_bytes.size(),
             std::ceil(static_cast<float>(message_bytes.size()) / ar::size_of<ar::RSA::block_type>())
                 * ar::size_of<ar::RSA::block_enc_type>());
@@ -64,7 +64,7 @@ TEST(rsa, encrypt_bytes)
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
   // auto& decipher_bytes = decipher.value();
-  auto decipher_bytes = ar::as_bytes<ar::RSA::block_type>(decipher.value(), filler);
+  auto decipher_bytes = ar::as_byte_span<ar::RSA::block_type>(decipher.value(), filler);
 
   check_span_eq<u8, u8>(message_bytes, decipher_bytes);
 }
@@ -78,11 +78,11 @@ TEST(rsa, encrypt_file)
   {
     ar::RSA rsa{};
     auto [filler, cipher] = rsa.encrypts(plain_result.value());
-    auto cipher_bytes = ar::as_bytes<ar::RSA::block_enc_type>(cipher);
+    auto cipher_bytes = ar::as_byte_span<ar::RSA::block_enc_type>(cipher);
     auto decipher = rsa.decrypts(cipher_bytes);
     ASSERT_TRUE(decipher.has_value());
     // resize
-    auto decipher_bytes = ar::as_bytes<ar::RSA::block_type>(decipher.value(), filler);
+    auto decipher_bytes = ar::as_byte_span<ar::RSA::block_type>(decipher.value(), filler);
     check_span_eq<u8, u8>(decipher_bytes, plain_result.value());
   }
 }
@@ -167,14 +167,14 @@ TEST(dm_rsa, encrypt_bytes)
   EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>()
                                + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
-  auto cipher_bytes = ar::as_bytes<ar::DMRSA::block_enc_type>(cipher);
+  auto cipher_bytes = ar::as_byte_span<ar::DMRSA::block_enc_type>(cipher);
   EXPECT_EQ(cipher_bytes.size(), std::ceil(static_cast<float>(message_bytes.size())
                                            / ar::size_of<ar::DMRSA::block_type>())
                                      * ar::size_of<ar::DMRSA::block_enc_type>());
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
-  auto decipher_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher.value(), filler);
+  auto decipher_bytes = ar::as_byte_span<ar::DMRSA::block_type>(decipher.value(), filler);
 
   check_span_eq<u8, u8>(message_bytes, decipher_bytes);
 }
@@ -193,14 +193,14 @@ TEST(dm_rsa, encrypt_bytes_with_remainder)
   EXPECT_EQ(cipher.size(), message_bytes.size() / ar::size_of<ar::DMRSA::block_type>()
                                + (expected_filler ? 1 : 0));
   EXPECT_EQ(filler, expected_filler);
-  auto cipher_bytes = ar::as_bytes<ar::DMRSA::block_enc_type>(cipher);
+  auto cipher_bytes = ar::as_byte_span<ar::DMRSA::block_enc_type>(cipher);
   EXPECT_EQ(cipher_bytes.size(), std::ceil(static_cast<float>(message_bytes.size())
                                            / ar::size_of<ar::DMRSA::block_type>())
                                      * ar::size_of<ar::DMRSA::block_enc_type>());
 
   auto decipher = rsa.decrypts(cipher_bytes);
   ASSERT_TRUE(decipher.has_value());
-  auto decipher_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher.value(), filler);
+  auto decipher_bytes = ar::as_byte_span<ar::DMRSA::block_type>(decipher.value(), filler);
 
   check_span_eq<u8, u8>(message_bytes, decipher_bytes);
 }
@@ -213,8 +213,8 @@ TEST(boost_multiprecision, number_to_bytes)
   // std::cout << std::hex << "Number: " << number << std::endl;
   // std::cout << std::hex << "Number 1: " << number_1 << std::endl;
 
-  auto bytes = ar::as_bytes(number);
-  auto bytes1 = ar::as_bytes(number_1);
+  auto bytes = ar::as_byte_span(number);
+  auto bytes1 = ar::as_byte_span(number_1);
 
   // boost::multiprecision::export_bits(number_1, std::back_inserter(bytes), 8);
 
@@ -259,10 +259,10 @@ TEST(dm_rsa, encrypt_camellia_key)
     ar::DMRSA rsa{};
 
     auto [filler, cipher] = rsa.encrypts(original_key);
-    auto cipher_bytes = ar::as_bytes<u64>(cipher);
+    auto cipher_bytes = ar::as_byte_span<u64>(cipher);
     auto decipher_key = rsa.decrypts(cipher_bytes);
     ASSERT_TRUE(decipher_key.has_value());
-    auto decipher_key_bytes = ar::as_bytes<ar::DMRSA::block_type>(decipher_key.value(), filler);
+    auto decipher_key_bytes = ar::as_byte_span<ar::DMRSA::block_type>(decipher_key.value(), filler);
 
     // check_span_eq<u8, u8>(original_key, decipher_key.value());
     check_span_eq<u8, u8>(original_key, decipher_key_bytes);

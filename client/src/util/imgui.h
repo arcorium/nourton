@@ -29,7 +29,7 @@ namespace ar
     auto text_size = ImGui::CalcTextSize(text.data());
 
     ImGui::SetCursorPosX((item_size.x - text_size.x) * 0.5f);
-    ImGui::Text(text.data());
+    ImGui::Text("%s", text.data());
   }
 
   static void center_text_unformatted(std::string_view text) noexcept

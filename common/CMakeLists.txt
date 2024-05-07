@@ -33,8 +33,6 @@ add_library(nourton-common STATIC
   core.h
 )
 
-target_compile_definitions(nourton-common PUBLIC _WIN32_WINNT=0x0A00)
-
 target_include_directories(nourton-common PUBLIC .)
 
 target_link_libraries(nourton-common PUBLIC
@@ -46,3 +44,8 @@ target_link_libraries(nourton-common PUBLIC
   primesieve::primesieve
   aes
 )
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  # https://github.com/llvm/llvm-project/issues/62801
+  target_compile_definitions(nourton-common PUBLIC -D__cpp_concepts=202002L -DASIO_HAS_CO_AWAIT=1)
+endif ()

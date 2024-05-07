@@ -12,7 +12,7 @@ and Camellia.
 
 - CMake (at least v3.15)
 - vcpkg
-- C++ compiler with c++23 support (Clang 18/MSVC 17.9)
+- C++ compiler with c++23 support (tested on gcc 14, clang 18, and msvc 17.9)
 
 ## Dependencies
 
@@ -33,26 +33,38 @@ if you doesn't have vcpkg installed consider to get the vcpkg first by:
 
 ```cmd
 > git clone https://github.com/microsoft/vcpkg
-> .\vcpkg\bootstrap-vcpkg.bat
+Windows:
+> ./vcpkg/bootstrap-vcpkg.bat
+Linux:
+> ./vcpkg/bootstrap-vcpkg.sh 
 ```
 
-or go to [vcpkg repository](https://github.com/microsoft/vcpkg) for more detailed explanation.
+Or go to [vcpkg repository](https://github.com/microsoft/vcpkg) for more detailed explanation.
 
-build project using cmake (change `VCPKG_ROOT` with vcpkg path installation):
+Build project using cmake (change `VCPKG_ROOT` with vcpkg path installation):
 
 ```cmd
-> cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE={VCPKG_ROOT}\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+> cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE={VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
 > cmake --build build
 ```
 
-if you just cloned the vcpkg, then it will become like this:
+If you just cloned the vcpkg on this directory, then it will become like this:
 
 ```cmd
-> cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=.\vcpkg\scripts\buildsystems\vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+> cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
 > cmake --build build
 ```
 
-**NOTE:** If you want to use global vcpkg you can delete `vcpkg.json` file, so it will not trying to build library again
+You can clang or gcc as compiler with setting the `-DCMAKE_C_COMPILER=[gcc|clang]`
+and `-DCMAKE_CXX_COMPILER=[g++|clang++]`:
+
+```cmd
+> cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+> cmake --build build
+```
+
+**NOTE:** If you want to use global vcpkg you can delete `vcpkg.json` file, so it will not try to build all the
+dependencies again
 
 ## Usage
 

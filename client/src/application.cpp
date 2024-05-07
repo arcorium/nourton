@@ -990,7 +990,7 @@ namespace ar
       return;
     }
 
-    Logger::error(fmt::format("error on getting user details: {}", payload.message.value()));
+    Logger::error(fmt::format("error on getting user details: {}", payload.message));
     state_.operation_state_complete();
     state_.disable_loading_overlay();
     state_.active_overlay(OverlayState::InternalError);
@@ -1004,7 +1004,7 @@ namespace ar
       return;
     }
 
-    Logger::error(fmt::format("error on getting user onlines: {}", payload.message.value()));
+    Logger::error(fmt::format("error on getting user onlines: {}", payload.message));
     state_.operation_state_complete();
     state_.disable_loading_overlay();
     state_.active_overlay(OverlayState::InternalError);
@@ -1110,8 +1110,8 @@ namespace ar
     {
       Logger::info(fmt::format("Feedback Repsonse: {}", payload.response,
                                magic_enum::enum_name(payload.id)));
-      if (payload.message)
-        Logger::trace(fmt::format("Feedback Message: {}", *payload.message));
+      if (!payload.message.empty())
+        Logger::trace(fmt::format("Feedback Message: {}", payload.message));
     }
   }
 

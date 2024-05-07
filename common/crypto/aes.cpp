@@ -60,7 +60,9 @@ namespace ar
 
     auto remainder_cipher_blocks = encrypt(remainder_bytes);
 
-    first_cipher_blocks->append_range(remainder_cipher_blocks.value());
+    // first_cipher_blocks->append_range(remainder_cipher_blocks.value());
+    first_cipher_blocks->insert(first_cipher_blocks->end(), remainder_cipher_blocks->begin(),
+                                remainder_cipher_blocks->end());
 
     return std::make_tuple<usize, std::vector<u8>>(KEY_BYTE - remainder,
                                                    std::move(first_cipher_blocks.value()));

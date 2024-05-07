@@ -44,7 +44,7 @@ using i512 = boost::multiprecision::int512_t;
 namespace ar
 {
   template <typename T>
-  concept number = requires(T t) { std::integral<T> || std::floating_point<T>; };
+  concept number = requires(T t) { requires std::integral<T> || std::floating_point<T>; };
 
   template <usize Bytes>
   struct uint;

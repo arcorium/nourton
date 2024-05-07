@@ -63,7 +63,7 @@ namespace ar
 
   inline u128 rotl(const u128& val, int rotation) noexcept
   {
-    return (val << rotation | val >> 128 - rotation);
+    return val << rotation | val >> (128 - rotation);
   }
 
   template <typename To, typename From>

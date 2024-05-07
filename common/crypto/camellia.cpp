@@ -150,14 +150,17 @@ namespace ar
       auto sub = bytes.subspan(offset, KEY_BYTE);
       // PERF: insert the result directly on vector instead of returning array
       auto cipher = encrypt(sub).value();
-      result.insert_range(result.end(), cipher);
+      // result.insert_range(result.end(), cipher);
+      // WARN: Changed here
+      result.insert(result.end(), cipher.begin(), cipher.end());
     }
 
     // Last block
     std::array<u8, 16> last_block{};
     std::memcpy(last_block.data(), bytes.data() + total_block * KEY_BYTE, remaining);
     auto cipher = encrypt(last_block).value();
-    result.insert_range(result.end(), cipher);
+    // result.insert_range(result.end(), cipher);
+    result.insert(result.end(), cipher.begin(), cipher.end());
 
     return std::make_tuple(fill, result);
   }
@@ -216,7 +219,8 @@ namespace ar
     {
       auto a = bytes.subspan(byte, KEY_BYTE);
       auto decipher = decrypt(a).value();
-      result.insert_range(result.end(), decipher);
+      // result.insert_range(result.end(), decipher);
+      result.insert(result.end(), decipher.begin(), decipher.end());
     }
 
     if (garbage)

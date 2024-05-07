@@ -90,8 +90,8 @@ namespace ar
                             ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(id.data(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-      ImGui::Text(line_1.data());
-      ImGui::Text(line_2.data());
+      ImGui::Text("%s", line_1.data());
+      ImGui::Text("%s", line_2.data());
       if (ImGui::Button("Close"))
       {
         std::invoke(std::forward<F>(button_callback));
@@ -136,7 +136,7 @@ namespace ar
     {
       ImGui::Image((ImTextureID)(intptr_t)image_prop.id, {24.f, 24.f});
       ImGui::SameLine();
-      ImGui::Text(user.name.data());
+      ImGui::Text("%s", user.name.data());
       ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
 
       ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 20.f);
@@ -168,7 +168,7 @@ namespace ar
       ImGui::Image((ImTextureID)(intptr_t)image_prop.id, {30.f, 30.f});
       ImGui::SameLine();
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2.f);
-      ImGui::Text(username.data());
+      ImGui::Text("%s", username.data());
       ImGui::SameLine(ImGui::GetWindowWidth() - 40.0f);
 
       ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 20.f);
