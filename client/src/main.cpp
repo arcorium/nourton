@@ -13,10 +13,7 @@
 
 void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
 {
-  // clang-format off
-  program.add_argument("-i", "--ip")
-      .help("ip of remote server")
-      .default_value("127.0.0.1");
+  program.add_argument("-i", "--ip").help("ip of remote server").default_value("127.0.0.1");
   program.add_argument("-p", "--port")
       .help("port of remove server")
       .scan<'u', u16>()
@@ -26,7 +23,6 @@ void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
       .default_value((std::filesystem::current_path() / "files").string());
 
   program.parse_args(argc, argv);
-  // clang-format on
 }
 
 int main(int argc, char* argv[])
@@ -36,6 +32,7 @@ int main(int argc, char* argv[])
     return -1;
 
   ar::Logger::set_current_thread_name("MAIN");
+  ar::Logger::set_minimum_level(ar::Logger::Level::Critical);
 
   if constexpr (!AR_DEBUG)
   {

@@ -136,3 +136,16 @@ TEST(algorithm, mod_exponential)
   auto result_3 = ar::mod_exponential<u128>(105, 168, 138);
   EXPECT_EQ(result_3, u128{81});
 }
+
+TEST(algorithm, _is_prime)
+{
+  ASSERT_EQ(ar::_is_prime(2), true);
+  ASSERT_EQ(ar::_is_prime(12345), false);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(12)), true);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(8001)), true);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(11001)), true);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(10001) - 1), false);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(101) - 1), false);
+  ASSERT_EQ(ar::_is_prime(ar::nth_prime<u64>(1)), true);
+  ASSERT_EQ(ar::_is_prime(817241), false);
+}

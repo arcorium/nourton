@@ -13,6 +13,7 @@ namespace ar
 {
   class IEventHandler;
 
+  // TODO: Client should handle higher level action instead of using the underlying connection
   class Client
   {
   public:

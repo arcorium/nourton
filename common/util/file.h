@@ -1,4 +1,7 @@
 #pragma once
+#include "core.h"
+
+
 #include <fmt/format.h>
 
 #include <expected>
@@ -63,7 +66,14 @@ namespace ar
   template <bool Block = true>
   static void execute_file(std::string_view fullpath) noexcept
   {
-    auto str = fmt::format("\"{}\"", fullpath);
+    std::string str;
+    if constexpr (AR_WINDOWS)
+      str = fmt::format("\"{}\"", fullpath);
+    else if constexpr(AR_LINUX)
+      str = fmt::format("xdg-open \"{}\"", fullpath);
+    else
+      str = fmt::format("open \"{}\"", fullpath);
+
     auto res = std::system(str.data());
   }
 }  // namespace ar

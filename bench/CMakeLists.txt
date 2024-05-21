@@ -7,20 +7,23 @@ add_executable(nourton-bench-key
 
 target_link_libraries(nourton-bench-key PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
 
-add_executable(nourton-bench-encrypt
+add_executable(nourton-bench-encrypt-2
   crypto/encrypt.cpp
+  crypto/util.h
 )
 
-target_link_libraries(nourton-bench-encrypt PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
+target_link_libraries(nourton-bench-encrypt-2 PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
 
-add_executable(nourton-bench-decrypt
+add_executable(nourton-bench-decrypt-2
   crypto/decrypt.cpp
+  crypto/util.h
 )
 
-target_link_libraries(nourton-bench-decrypt PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
+target_link_libraries(nourton-bench-decrypt-2 PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
 
-add_executable(nourton-bench-all
+add_executable(nourton-bench-all-2
   crypto/all.cpp
+  crypto/util.h
 )
 
-target_link_libraries(nourton-bench-all PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)
+target_link_libraries(nourton-bench-all-2 PRIVATE benchmark::benchmark benchmark::benchmark_main nourton-common)

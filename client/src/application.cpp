@@ -1089,13 +1089,13 @@ namespace ar
       break;
     }
     case PayloadId::GetUserDetails: {
-      // GetUserDetails payload will only response Feedback when there is
+      // GetUserDetails payload will only respond Feedback when there is
       // error happens
       get_user_details_feedback_handler(payload);
       break;
     }
     case PayloadId::GetUserOnline: {
-      // GetUserOnline payload will only response Feedback when there is error
+      // GetUserOnline payload will only respond Feedback when there is error
       // happens
       get_user_online_feedback_handler(payload);
       break;

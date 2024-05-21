@@ -8,6 +8,8 @@
 #include <crypto/camellia.h>
 #include <crypto/aes.h>
 
+#include "util.h"
+
 #ifdef expect
   #undef expect
 #endif
@@ -86,7 +88,7 @@ static void encrypt_aes(benchmark::State& state)
   }
 }
 
-static void decript_hybrid(benchmark::State& state)
+static void encyrpt_hybrid(benchmark::State& state)
 {
   std::vector<u64> data_bytes{};
   auto val = state.range();
@@ -103,41 +105,13 @@ static void decript_hybrid(benchmark::State& state)
     auto bytes_byte = ar::as_byte_span<u64>(data_bytes);
     auto result = camellia.encrypts(bytes_byte);
     benchmark::DoNotOptimize(result);
+    benchmark::DoNotOptimize(result_key);
   }
 }
 
-static constexpr i64 ARG_1 = 20;
-static constexpr i64 ARG_2 = 400;
-static constexpr i64 ARG_3 = 800;
-static constexpr i64 ARG_4 = 1600;
+BENCHMARK(encrypt_dmrsa)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(encrypt_rsa)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(encrypt_camellia)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(encrypt_aes)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(encyrpt_hybrid)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
 
-BENCHMARK(encrypt_dmrsa)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(encrypt_rsa)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(encrypt_camellia)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(encrypt_aes)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(decript_hybrid)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);

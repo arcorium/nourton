@@ -27,11 +27,7 @@ namespace ar
 
     // TODO: use key_ instead of key from parameter
     u128 kl = rawToBoost_uint128(key.data());
-    u128 kr = 0;  // 0, becuase the key only 128 bit
-
-    // std::cout << "KL: " << std::hex << kl << std::endl;
-    // std::cout << "aa: " << std::dec << aa << std::endl;
-    // fmt::println("Key: {}", key);
+    u128 kr = 0;  // key size is 128 bit
 
     auto XORED = kl ^ kr;
     // WARN: Need to check the convert result
@@ -103,6 +99,7 @@ namespace ar
     auto d2 = (text >> 64).convert_to<u64>();
     auto d1 = (text & MASK_64BIT).convert_to<u64>();
 
+    // Feistel Network Round
     auto round = [this](u64& d1, u64& d2, usize i) {
       for (std::size_t j = 0; j < 3; ++j)
       {

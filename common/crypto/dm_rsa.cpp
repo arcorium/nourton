@@ -178,11 +178,16 @@ namespace ar
     return std::make_tuple(ar::size_of<block_type>() - remaining_bytes, result);
   }
 
+  // TODO: Change return type into std::expected
   DMRSA::block_type DMRSA::decrypt(block_enc_type block) noexcept
   {
     // (c^d2 mod n1)^d1 mod n2
     // (((c mod n2) (e1 mod n2)) mod n1) (d1 mod n1)
     // std::cout << "cipher: " << std::hex << block << " | " << std::dec << block << std::endl;
+    if (d1_ == 0 || d2_ == 0)
+      ar::Logger::critical(
+          "object is not supposed to be used for decrypting");  // FIX: it is should be unexpected
+                                                                // instead of exiting app
 
     auto first = ar::mod_exponential<key_type>(block, d2_, n2_);
     // std::cout << "first: " << std::hex << first << " | " << std::dec << first << std::endl;

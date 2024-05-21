@@ -14,6 +14,7 @@
 #include <asio/thread_pool.hpp>
 #include <asio/use_awaitable.hpp>
 #include <asio/write.hpp>
+#include <asio/awaitable.hpp>
 
 #include "core.h"
 #include "logger.h"

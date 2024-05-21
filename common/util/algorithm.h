@@ -32,6 +32,7 @@ namespace ar
     std::unreachable();
   }
 
+  // Extended Euclidean Algorithm, search the gcd along with the Bezout coefficients
   // @copyright: https://www.geeksforgeeks.org/multiplicative-inverse-under-modulo-m/
   template <typename T>
   static constexpr T gcd_extended(T a, T b, signed_type_of<T>& x, signed_type_of<T>& y)
@@ -112,7 +113,7 @@ namespace ar
 #endif
 
   template <typename T>
-  static constexpr bool is_prime(T n)
+  static constexpr bool is_prime(T n) noexcept
   {
     if (n <= 1)
       return false;  // 0 and 1 is not prime
@@ -121,7 +122,7 @@ namespace ar
     if (n % 3 == 0)
       return n == 3;  // all numbers divided by 3 except 3 is not prime
 
-    // PERF: add stepping
+    // PERF: add steppingj
     T mid = n / 2;
     for (T i = 5; i < mid; ++i)
     {
@@ -131,12 +132,18 @@ namespace ar
     return true;
   }
 
+  template <std::integral T>
+  constexpr bool _is_prime(T n, usize k) noexcept;
+
   template <typename T>
   static constexpr T nth_prime(usize nth) noexcept
   {
     // NOTE: Naive implementation
     if constexpr (USE_NAIVE_PRIME)
     {
+      if (nth == 1)
+        return 2;
+
       usize counter{1};
       T number{2};
       while (counter < nth)
@@ -157,7 +164,7 @@ namespace ar
   #define USE_NAIVE_POWM 1
 #endif
 
-  // a ^ b % m
+  // a ^b = 1 (mod n) == a ^ b % m
   // ((a % m) ( b % m )) % m
   // @copyright https://www.geeksforgeeks.org/modular-exponentiation-power-in-modular-arithmetic/
   template <typename T>
@@ -172,7 +179,8 @@ namespace ar
       if (a == 0)
         return 0;  // In case x is divisible by p;
 
-      while (b > 0)
+      //      while (b > 0)
+      while (b)
       {
         // If y is odd, multiply x with result
         if (b & 1)
@@ -194,5 +202,26 @@ namespace ar
       if (gcd(i, n) == 1)
         ++result;
     return result;
+  }
+
+  template <typename T>
+  constexpr bool _is_prime(T n, usize k = 3) noexcept
+  {
+    if (n <= 1)
+      return false;  // 0 and 1 is not prime
+    if (n % 2 == 0)
+      return n == 2;  // all numbers divided by 2 except 2 is not prime
+    if (n % 3 == 0)
+      return n == 3;  // all numbers divided by 3 except 3 is not prime
+
+    while (k-- != 0)
+    {
+      T a = 2 + random<T>() % (n - 4);
+      // Fermat's little theorem
+      // a^(n-1) = 1 (mod n)
+      if (mod_exponential(a, n - 1, n) != 1)
+        return false;
+    }
+    return true;
   }
 }  // namespace ar

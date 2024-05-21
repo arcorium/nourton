@@ -9,6 +9,8 @@
 #include <crypto/camellia.h>
 #include <crypto/aes.h>
 
+#include "util.h"
+
 #ifdef expect
   #undef expect
 #endif
@@ -135,38 +137,8 @@ static void decrypt_hybrid(benchmark::State& state)
   }
 }
 
-static constexpr i64 ARG_1 = 20;
-static constexpr i64 ARG_2 = 400;
-static constexpr i64 ARG_3 = 800;
-static constexpr i64 ARG_4 = 1600;
-
-BENCHMARK(decrypt_dmrsa)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(decrypt_rsa)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(decrypt_camellia)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(decrypt_aes)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
-BENCHMARK(decrypt_hybrid)
-    ->Unit(benchmark::kMillisecond)
-    ->Arg(ARG_1)
-    ->Arg(ARG_2)
-    ->Arg(ARG_3)
-    ->Arg(ARG_4);
+BENCHMARK(decrypt_dmrsa)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(decrypt_rsa)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(decrypt_camellia)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(decrypt_aes)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
+BENCHMARK(decrypt_hybrid)->Unit(benchmark::kMillisecond)->Arg(ARG_1)->Arg(ARG_2);
