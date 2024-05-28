@@ -27,6 +27,8 @@
 #include "util/tinyfd.h"
 #include "widget.h"
 
+#include "message/feedback.h"
+
 namespace ar
 {
   namespace gui = ImGui;
@@ -35,20 +37,20 @@ namespace ar
 
   Application::Application(asio::io_context& ctx, Window window, std::string_view ip, u16 port,
                            std::string_view save_dir) noexcept
-      : is_running_{false},
-        context_{ctx},
-        state_{PageState::Login},
-        window_{std::move(window)},
-        save_dir_{save_dir},
-        selected_user_{-1},
-        client_{ctx.get_executor(), asio::ip::make_address_v4(ip), port, this}
+    : is_running_{false},
+      context_{ctx},
+      state_{PageState::Login},
+      window_{std::move(window)},
+      save_dir_{save_dir},
+      selected_user_{-1},
+      client_{ctx.get_executor(), asio::ip::make_address_v4(ip), port, this}
   {
     users_.reserve(1024);
     username_.reserve(255);
     password_.reserve(255);
     confirm_password_.reserve(255);
 
-    // create directory for saved files
+    // create directory for received files
     std::error_code ec;
     std::filesystem::create_directory(save_dir_, ec);
   }
@@ -139,7 +141,9 @@ namespace ar
     {
       std::unique_lock lock{file_mutex_};
       for (const auto filename : deleted_file_names_)
-        std::erase_if(files_, [&](const FileProperty& prop) { return prop.fullpath == filename; });
+        std::erase_if(files_, [&](const FileProperty& prop) {
+          return prop.fullpath == filename;
+        });
       deleted_file_names_.clear();
     }
   }
@@ -277,8 +281,7 @@ namespace ar
   {
     while (is_running())
     {
-      // when the work is empty, then wait or continue until there's no work
-      // left
+      // when the work is empty, then wait or continue until there's no work left
       if (send_file_datas_.empty())
       {
         // wait until there is a work
@@ -303,7 +306,9 @@ namespace ar
         std::unique_lock lock{user_mutex_};
 
         auto it = std::ranges::find_if(users_,
-                                       [&](const UserClient& uc) { return uc.id == data.user_id; });
+                                       [&](const UserClient& uc) {
+                                         return uc.id == data.user_id;
+                                       });
         if (it == users_.end())
         {
           Logger::error("trying to send file to user that doesn't exists");
@@ -336,45 +341,22 @@ namespace ar
       state_.disable_loading_overlay();
       state_.expect_operation_state(OperationState::SendFile);
 
-      // Read file
-      auto result = read_file_as_bytes(filepath);
-      if (!result.has_value())
+      auto ts = get_current_time();
+      if (!client_.send_file(user->public_key, filepath, user->id))
       {
-        Logger::error(result.error());
         state_.active_overlay(OverlayState::FileNotExist);
         continue;
       }
 
-      // Encrypt file
-      auto symmetric_key = random_bytes<16>();
-      Camellia symmetric{symmetric_key};
-      auto [file_filler, enc_files] = symmetric.encrypts(result.value());
-
-      // Encrypt symmetric key
-      DMRSA rsa{user->public_key};
-      auto [key_filler, enc_key] = rsa.encrypts(symmetric_key);
-
-      // PERF: asymmetric returning vector<u8> instead of vector<u64> so it can
-      // be moved instead of copying
-      auto enc_key_bytes = ar::as_byte_span<usize>(enc_key);
+      std::error_code ec;
+      auto size = std::filesystem::file_size(filepath, ec);
 
       auto [format, format_str] = get_file_format(filename);
-      // Send payload
-      SendFilePayload payload{
-          .file_filler = static_cast<u8>(file_filler),
-          .key_filler = static_cast<u8>(key_filler),
-          .file_size = result->size(),
-          .filename = std::string{filename},
-          .timestamp = get_current_time(),
-          .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
-          .files = std::move(enc_files)
-      };
-      client_.connection().write(payload.serialize(user->id));
 
       {
         std::unique_lock lock{file_mutex_};
-        files_.emplace_back(format, result->size(), this_user_.get(), std::move(data.file_fullpath),
-                            std::move(payload.timestamp));
+        files_.emplace_back(format, size, this_user_.get(), std::move(data.file_fullpath),
+                            std::move(ts));
       }
     }
   }
@@ -424,7 +406,9 @@ namespace ar
     notification_overlay(State::overlay_state_id(OverlayState::ClientDisconnected),
                          ICON_FA_CONNECTDEVELOP
                          " Application couldn't make a connection with server"sv,
-                         "Please fill all fields and try again"sv, [this] { window_.exit(); });
+                         "Please fill all fields and try again"sv, [this] {
+                           window_.exit();
+                         });
 
     // Empty Field Notification
     notification_overlay(State::overlay_state_id(OverlayState::EmptyField),
@@ -471,8 +455,8 @@ namespace ar
     gui::SetNextWindowSize({400, 260});
     gui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Always, {0.5f, 0.5f});
     if (!gui::Begin(
-            "Login", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+        "Login", nullptr,
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
       return;
 
     static std::string_view login_page = "Login"sv;
@@ -520,8 +504,8 @@ namespace ar
     gui::SetNextWindowSize({400, 315});
     gui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Always, {0.5f, 0.5f});
     if (!gui::Begin(
-            "Register", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
+        "Register", nullptr,
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
       return;
 
     static std::string_view login_page = "Login"sv;
@@ -582,7 +566,7 @@ namespace ar
     gui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
     if (gui::Begin("Dashboard", nullptr,
                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse
-                       | ImGuiWindowFlags_NoTitleBar))
+                   | ImGuiWindowFlags_NoTitleBar))
     {
       gui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.f);
       if (gui::BeginChild("user-online", {viewport->WorkSize.x * 0.25f, 0}, ImGuiChildFlags_Border,
@@ -594,8 +578,9 @@ namespace ar
           gui::EndMenuBar();
         }
 
-        std::ranges::for_each(
-            users_, [this](const UserClient& user) { user_widget(user, resource_manager_); });
+        std::ranges::for_each(users_, [this](const UserClient& user) {
+          user_widget(user, resource_manager_);
+        });
       }
       gui::EndChild();
 
@@ -660,7 +645,9 @@ namespace ar
 
         // filter out offline user
         auto filtered_users
-            = users_ | std::views::filter([](const UserClient& user) { return user.is_online; })
+            = users_ | std::views::filter([](const UserClient& user) {
+                return user.is_online;
+              })
               | std::views::enumerate;
         std::ranges::for_each(filtered_users, [this](const std::tuple<usize, UserClient>& data) {
           auto n = std::get<0>(data);
@@ -827,7 +814,7 @@ namespace ar
 
     // handle register
     RegisterPayload payload{username_, password_};
-    client_.connection().write(payload.serialize());
+    client_.write(std::move(payload), User::SERVER_ID);
 
     state_.active_loading_overlay();
     state_.expect_operation_state(OperationState::Register);
@@ -851,7 +838,7 @@ namespace ar
 
     // handle login
     LoginPayload payload{.username = username_, .password = password_};
-    client_.connection().write(payload.serialize());
+    client_.write(std::move(payload), User::SERVER_ID);
 
     state_.active_loading_overlay();
     state_.expect_operation_state(OperationState::Login);
@@ -878,7 +865,7 @@ namespace ar
     if (!user.public_key.is_valid())
     {
       GetUserDetailsPayload user_details_payload{.id = user.id};
-      client_.connection().write(user_details_payload.serialize());
+      client_.write(std::move(user_details_payload), User::SERVER_ID);
 
       state_.expect_operation_state(OperationState::GetUserDetails);
       state_.active_loading_overlay();
@@ -907,11 +894,8 @@ namespace ar
       return;
     }
 
-    // serialize public key and send it to server
-    auto public_key = asymmetric_encryptor_.public_key();
-    auto public_key_bytes = ar::serialize(public_key);
-
-    StorePublicKeyPayload key_payload{.public_key = std::move(public_key_bytes)};
+    GetServerDetailsPayload server_payload{};
+    client_.write<GetServerDetailsPayload, false>(std::move(server_payload), User::SERVER_ID);
 
     // set current user
     // TODO: get self user detail from server
@@ -920,25 +904,8 @@ namespace ar
     // start thread
     send_file_thread_ = std::thread{&Application::send_file_thread, this};
 
-    auto* ucc = new UserClient{true, 123, "mirna"};
-    // TODO: Delete this, it is for debug purpose
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
-    // "File 1.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, ucc, "File 2.png",
-    // get_current_time()); files_.emplace_back(FileFormat::Archive, 12345,
-    // this_user_.get(), "File 3.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
-    // "File 4.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
-    // "File 5.png", get_current_time());
-    // files_.emplace_back(FileFormat::Archive, 12345, this_user_.get(),
-    //                     "File File File File File File File File File 6.png",
-    //                     get_current_time());
-
-    client_.connection().write(key_payload.serialize());
-
-    state_.expect_operation_state(OperationState::StorePublicKey);
-    state_.active_loading_overlay();  // make it loading on login page
+    state_.expect_operation_state(OperationState::GetUserDetails);
+    state_.active_loading_overlay(); // make it loading on login page
   }
 
   void Application::register_feedback_handler(const FeedbackPayload& payload) noexcept
@@ -1030,10 +997,38 @@ namespace ar
 
     // Get user onlines
     GetUserOnlinePayload user_online_payload{};
-    client_.connection().write(user_online_payload.serialize());
+    client_.write(std::move(user_online_payload), User::SERVER_ID);
 
-    state_.active_loading_overlay();  // make it loading and still on loading page
+    state_.active_loading_overlay(); // make it loading and still on loading page
     state_.expect_operation_state(OperationState::GetUserOnline);
+  }
+
+  void Application::store_symmetric_key_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::StoreSymmetricKey)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    state_.operation_state_complete();
+
+    // failed to store
+    if (!payload.response)
+    {
+      state_.disable_loading_overlay();
+      state_.active_overlay(OverlayState::InternalError);
+      return;
+    }
+
+    // store public keys and encrypt using symmetric key
+    auto key = client_.asymmetric_encryptor().public_key();
+
+    StorePublicKeyPayload user_online_payload{.key = ar::serialize(key)};
+    client_.write(std::move(user_online_payload), User::SERVER_ID);
+
+    state_.active_loading_overlay(); // make it loading and still on loading page
+    state_.expect_operation_state(OperationState::StorePublicKey);
   }
 
   void Application::on_file_drop(std::string_view paths) noexcept
@@ -1104,6 +1099,10 @@ namespace ar
       store_public_key_feedback_handler(payload);
       break;
     }
+    case PayloadId::StoreSymmetricKey: {
+      store_symmetric_key_feedback_handler(payload);
+      break;
+    }
     }
 
     if constexpr (AR_DEBUG)
@@ -1116,43 +1115,11 @@ namespace ar
   }
 
   void Application::on_file_receive(const Message::Header& header,
-                                    const SendFilePayload& payload) noexcept
+                                    const ReceivedFile& received_file) noexcept
   {
-    // Decrypt key
-    auto decipher_key_result = asymmetric_encryptor_.decrypts(payload.symmetric_key);
-    if (!decipher_key_result.has_value())
-    {
-      Logger::error(
-          fmt::format("failed to decrypt symmetric key: {}", decipher_key_result.error()));
-      return;
-    }
-    auto decipher_key_bytes
-        = as_byte_span<DMRSA::block_type>(decipher_key_result.value(), payload.key_filler);
-    if (decipher_key_bytes.size() != KEY_BYTE)
-    {
-      Logger::error("decrypted key is malformed");
-      return;
-    }
-
-    // Decrypt files
-    Camellia::key_type key{decipher_key_bytes};
-    Camellia symmetric_encryptor{key};
-    auto decipher_file_result = symmetric_encryptor.decrypts(payload.files, payload.file_filler);
-    if (!decipher_file_result.has_value())
-    {
-      Logger::error(
-          fmt::format("failed to decrypt incoming file: {}", decipher_file_result.error()));
-      return;
-    }
-    if (decipher_file_result->size() != payload.file_size)
-    {
-      Logger::error("decipher file has different size than the original file");
-      return;
-    }
-
     // Save file (overwrite)
-    auto dest_path = save_dir_ / payload.filename;
-    if (!save_bytes_as_file<true>(dest_path.string(), decipher_file_result.value()))
+    auto dest_path = save_dir_ / received_file.filename;
+    if (!save_bytes_as_file<true>(dest_path.string(), received_file.files))
     {
       Logger::error("failed to save incoming file to disk");
       return;
@@ -1161,14 +1128,16 @@ namespace ar
     // Show to dashboard
     {
       std::unique_lock lock{file_mutex_};
-      auto [format, format_str] = get_file_format(payload.filename);
+      auto [format, format_str] = get_file_format(received_file.filename);
       {
         // get user opponent
-        std::unique_lock lock2{user_mutex_};  // FIX: use shared_mutex for user so
+        std::unique_lock lock2{user_mutex_}; // FIX: use shared_mutex for user so
         // it can be read by multiple thread
 
         auto it = std::ranges::find_if(
-            users_, [&](const UserClient& uc) { return uc.id == header.opponent_id; });
+            users_, [&](const UserClient& uc) {
+              return uc.id == header.opponent_id;
+            });
         if (it == users_.end())
         {
           // WARN: it should be UB here
@@ -1176,7 +1145,7 @@ namespace ar
           return;
         }
 
-        files_.emplace_back(format, payload.file_size, &*it, dest_path.string(),
+        files_.emplace_back(format, received_file.files.size_bytes(), &*it, dest_path.string(),
                             get_current_time());
       }
     }
@@ -1187,7 +1156,9 @@ namespace ar
     std::unique_lock lock{user_mutex_};
     // search if user already on database (offline)
     auto offline_users
-        = users_ | std::views::filter([](const UserClient& uc) { return !uc.is_online; });
+        = users_ | std::views::filter([](const UserClient& uc) {
+          return !uc.is_online;
+        });
     if (offline_users.empty())
     {
       users_.emplace_back(true, payload.id, payload.username);
@@ -1195,7 +1166,9 @@ namespace ar
     }
     // toggle is_online
     auto it = std::ranges::find_if(offline_users,
-                                   [&](const UserClient& uc) { return uc.id == payload.id; });
+                                   [&](const UserClient& uc) {
+                                     return uc.id == payload.id;
+                                   });
     if (it == offline_users.end())
     {
       users_.emplace_back(true, payload.id, payload.username);
@@ -1210,7 +1183,9 @@ namespace ar
     // std::erase_if(users_, [&](const UserClient& user) { return user.id ==
     // payload.id; });
     auto it = std::ranges::find_if(users_,
-                                   [&](const UserClient& user) { return user.id == payload.id; });
+                                   [&](const UserClient& user) {
+                                     return user.id == payload.id;
+                                   });
     if (it == users_.end())
     {
       Logger::warn(
@@ -1233,7 +1208,9 @@ namespace ar
     {
       std::unique_lock lock{user_mutex_};
       auto it = std::ranges::find_if(users_,
-                                     [&](const UserClient& user) { return user.id == payload.id; });
+                                     [&](const UserClient& user) {
+                                       return user.id == payload.id;
+                                     });
       if (it == users_.end())
       {
         Logger::error(fmt::format("got user detail, but the user is not on the list: {}|{}",
@@ -1247,7 +1224,7 @@ namespace ar
 
       // deserialize public key
       auto result = ar::deserialize(payload.public_key);
-      if (!result.has_value())
+      if (!result)
       {
         state_.operation_state_complete();
         state_.disable_loading_overlay();
@@ -1287,4 +1264,30 @@ namespace ar
     state_.disable_loading_overlay();
     state_.active_page(PageState::Dashboard);
   }
-}  // namespace ar
+
+  void Application::on_server_detail_response(const ServerDetailsPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != OperationState::GetServerDetails)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    auto result = deserialize(payload.public_key);
+    if (!result)
+    {
+      Logger::critical(fmt::format("failed to get server public key: {}", result.error()));
+      return;
+    }
+
+    server_ = std::make_unique<UserClient>(true, payload.id, "SERVER", result.value());
+
+    // Store the symmetric key and encrypt it using server public key
+    auto key = client_.symmetric_encryptor().key();
+    StoreSymmetricKeyPayload store_payload{.key = {key.begin(), key.end()}};
+    client_.write(server_->public_key, std::move(store_payload), User::SERVER_ID);
+
+    state_.operation_state_complete();
+    state_.expect_operation_state(OperationState::StoreSymmetricKey);
+  }
+} // namespace ar

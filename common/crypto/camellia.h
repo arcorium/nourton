@@ -110,10 +110,13 @@ namespace ar
 
     explicit Camellia(key_type key) noexcept;
 
-    /**
-     * Create Camellia object instance with generated random key
-     */
     Camellia() noexcept;
+
+    Camellia(Camellia&& other) noexcept;
+    Camellia& operator=(Camellia&& other) noexcept;
+
+    Camellia(const Camellia& other) noexcept;
+    Camellia& operator=(const Camellia& other) noexcept;
 
     /**
      * create Camellia instance using string_view as key, when the key size (bytes) is not 16 it
@@ -164,15 +167,18 @@ namespace ar
     [[nodiscard]] key_type key() const noexcept;
 
   private:
+    void schedule_key(key_type key) noexcept;
+
     u64 F(u64 in, u64 ke) const noexcept;
     u64 FL(u64 in, u64 subkey) const noexcept;
     u64 FLINV(u64 in, u64 subkey) const noexcept;
 
   private:
-    std::array<u8, KEY_BYTE> key_;
+    bool is_initialized_;
+    std::array<u8, KEY_BYTE> key_{};
     u128 ka_;
-    u64 kw_[4];
-    u64 k_[18];
-    u64 ke_[4];
+    u64 kw_[4]{};
+    u64 k_[18]{};
+    u64 ke_[4]{};
   };
 }  // namespace ar

@@ -12,6 +12,8 @@
 #include "state.h"
 #include "window.h"
 
+#include "message/feedback.h"
+
 namespace asio
 {
   class thread_pool;
@@ -60,6 +62,7 @@ namespace ar
     void get_user_details_feedback_handler(const FeedbackPayload& payload) noexcept;
     void get_user_online_feedback_handler(const FeedbackPayload& payload) noexcept;
     void store_public_key_feedback_handler(const FeedbackPayload& payload) noexcept;
+    void store_symmetric_key_feedback_handler(const FeedbackPayload& payload) noexcept;
 
     void on_file_drop(std::string_view paths) noexcept;
 
@@ -70,17 +73,18 @@ namespace ar
   public:
     void on_feedback_response(const FeedbackPayload& payload) noexcept override;
     void on_file_receive(const Message::Header& header,
-                         const SendFilePayload& payload) noexcept override;
+                         const ReceivedFile& received_file) noexcept override;
     void on_user_login(const UserLoginPayload& payload) noexcept override;
     void on_user_logout(const UserLogoutPayload& payload) noexcept override;
     void on_user_detail_response(const UserDetailPayload& payload) noexcept override;
     void on_user_online_response(const UserOnlinePayload& payload) noexcept override;
+    void on_server_detail_response(const ServerDetailsPayload& payload) noexcept override;
 
   private:
     struct SendFileOperationData
     {
       User::id_type user_id;
-      std::string file_fullpath;  // fullpath
+      std::string file_fullpath; // fullpath
     };
 
   private:
@@ -91,7 +95,7 @@ namespace ar
     Window window_;
 
     // Encrypt data
-    DMRSA asymmetric_encryptor_;
+    // DMRSA asymmetric_encryptor_;
     std::thread send_file_thread_;
     std::condition_variable send_file_cv_;
     std::mutex send_file_data_mutex_;
@@ -111,17 +115,18 @@ namespace ar
     std::mutex user_mutex_;
 
     // better to use list instead, because when the vector grows it will
-    // invalidate all files that have reference on the users HACK: for now the
-    // vector will reserve big number (1024)
+    // invalidate all files that have reference on the users
+    // HACK: for now the vector will reserve big number (1024)
     std::vector<UserClient> users_;
+    std::unique_ptr<UserClient> server_;
     std::unique_ptr<UserClient> this_user_;
 
     // Send File data
     std::filesystem::path save_dir_;
     std::string dropped_file_path_;
-    std::vector<std::string> dropped_file_paths_;
+    // std::vector<std::string> dropped_file_paths_;
     int selected_user_;
 
     Client client_;
   };
-}  // namespace ar
+} // namespace ar

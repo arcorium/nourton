@@ -9,6 +9,7 @@ namespace ar
   struct User
   {
     using id_type = u16;
+    static constexpr id_type SERVER_ID = 0;
 
     id_type id;
     std::string name;
@@ -23,4 +24,4 @@ namespace ar
     // std::vector<u8> public_key;
     // DMRSA::_public_key public_key;
   };
-}  // namespace ar
+} // namespace ar

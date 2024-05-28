@@ -31,6 +31,9 @@ add_library(nourton-common STATIC
   crypto/aes.cpp
   crypto/aes.h
   core.h
+  crypto/hybrid.h
+  message/message.h
+  message/feedback.h
 )
 
 target_include_directories(nourton-common PUBLIC .)

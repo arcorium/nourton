@@ -19,61 +19,15 @@
 namespace ar
 {
   Camellia::Camellia(key_type key) noexcept
-      : key_{}, ka_{}, kw_{}, k_{}, ke_{}
+    : key_{}, ka_{}, kw_{}, k_{}, ke_{}, is_initialized_(false)
   {
-    // set key
-    for (const auto& [i, byte] : key | std::views::enumerate)
-      key_[i] = byte;
-
-    // TODO: use key_ instead of key from parameter
-    u128 kl = rawToBoost_uint128(key.data());
-    u128 kr = 0;  // key size is 128 bit
-
-    auto XORED = kl ^ kr;
-    // WARN: Need to check the convert result
-    auto d1 = (XORED >> 64).convert_to<u64>();
-    auto d2 = (XORED & MASK_64BIT).convert_to<u64>();
-
-    d2 = d2 ^ F(d1, SIGMA[0]);
-    d1 = d1 ^ F(d2, SIGMA[1]);
-    d1 = d1 ^ (kl >> 64).convert_to<u64>();
-    d2 = d2 ^ (kl & MASK_64BIT).convert_to<u64>();
-    d2 = d2 ^ F(d1, SIGMA[2]);
-    d1 = d1 ^ F(d2, SIGMA[3]);
-    ka_ = d1;
-    ka_ = (ka_ << 64) | d2;
-
-    kw_[0] = (kl >> 64).convert_to<u64>();
-    kw_[1] = (kl & MASK_64BIT).convert_to<u64>();
-    k_[0] = (ka_ >> 64).convert_to<u64>();
-    k_[1] = (ka_ & MASK_64BIT).convert_to<u64>();
-    k_[2] = (ar::rotl(kl, 15) >> 64).convert_to<u64>();
-    k_[3] = (ar::rotl(kl, 15) & MASK_64BIT).convert_to<u64>();
-    k_[4] = (ar::rotl(ka_, 15) >> 64).convert_to<u64>();
-    k_[5] = (ar::rotl(ka_, 15) & MASK_64BIT).convert_to<u64>();
-    ke_[0] = (ar::rotl(ka_, 30) >> 64).convert_to<u64>();
-    ke_[1] = (ar::rotl(ka_, 30) & MASK_64BIT).convert_to<u64>();
-    k_[6] = (ar::rotl(kl, 45) >> 64).convert_to<u64>();
-    k_[7] = (ar::rotl(kl, 45) & MASK_64BIT).convert_to<u64>();
-    k_[8] = (ar::rotl(ka_, 45) >> 64).convert_to<u64>();
-    k_[9] = (ar::rotl(kl, 60) & MASK_64BIT).convert_to<u64>();
-    k_[10] = (ar::rotl(ka_, 60) >> 64).convert_to<u64>();
-    k_[11] = (ar::rotl(ka_, 60) & MASK_64BIT).convert_to<u64>();
-    ke_[2] = (ar::rotl(kl, 77) >> 64).convert_to<u64>();
-    ke_[3] = (ar::rotl(kl, 77) & MASK_64BIT).convert_to<u64>();
-    k_[12] = (ar::rotl(kl, 94) >> 64).convert_to<u64>();
-    k_[13] = (ar::rotl(kl, 94) & MASK_64BIT).convert_to<u64>();
-    k_[14] = (ar::rotl(ka_, 94) >> 64).convert_to<u64>();
-    k_[15] = (ar::rotl(ka_, 94) & MASK_64BIT).convert_to<u64>();
-    k_[16] = (ar::rotl(kl, 111) >> 64).convert_to<u64>();
-    k_[17] = (ar::rotl(kl, 111) & MASK_64BIT).convert_to<u64>();
-    kw_[2] = (ar::rotl(ka_, 111) >> 64).convert_to<u64>();
-    kw_[3] = (ar::rotl(ka_, 111) & MASK_64BIT).convert_to<u64>();
+    schedule_key(key);
   }
 
   Camellia::Camellia() noexcept
-      : Camellia{random_bytes<KEY_BYTE>()}
+    : is_initialized_(false)
   {
+
   }
 
   std::expected<Camellia, std::string_view> Camellia::create(std::string_view key) noexcept
@@ -82,15 +36,18 @@ namespace ar
       return std::unexpected<std::string_view>("key should be 16 bytes length");
 
     std::array<u8, KEY_BYTE> key_bytes{};
-    for (auto&& [i, n] : key_bytes | std::ranges::views::enumerate)
+    for (auto &&[i, n]: key_bytes | std::ranges::views::enumerate)
       n = key[i];
 
-    return Camellia{key_type{key_bytes}};
+    return Camellia{key_bytes};
   }
 
   std::expected<std::array<unsigned char, KEY_BYTE>, std::string_view> Camellia::encrypt(
-      block_type block) const noexcept
+    block_type block) const noexcept
   {
+    if (!is_initialized_)
+      return std::unexpected("key is empty");
+
     if (block.size() != KEY_BYTE)
       return std::unexpected("block should be 16 bytes long!");
     // auto text = to_128(block);
@@ -100,9 +57,8 @@ namespace ar
     auto d1 = (text & MASK_64BIT).convert_to<u64>();
 
     // Feistel Network Round
-    auto round = [this](u64& d1, u64& d2, usize i) {
-      for (std::size_t j = 0; j < 3; ++j)
-      {
+    auto round = [this](u64 &d1, u64 &d2, usize i) {
+      for (std::size_t j = 0; j < 3; ++j) {
         auto x = i + (j * 2);
         d2 = d2 ^ F(d1, k_[x + 0]);
         d1 = d1 ^ F(d2, k_[x + 1]);
@@ -113,11 +69,9 @@ namespace ar
     d1 = d1 ^ kw_[0];
     d2 = d2 ^ kw_[1];
 
-    for (usize i = 0; i < 3; ++i)
-    {
+    for (usize i = 0; i < 3; ++i) {
       round(d1, d2, i * 6);
-      if (i < 2)
-      {
+      if (i < 2) {
         d1 = FL(d1, ke_[i * 2 + 0]);
         d2 = FLINV(d2, ke_[i * 2 + 1]);
       }
@@ -141,8 +95,7 @@ namespace ar
     result.reserve(bytes.size() + fill);
 
     // TODO: Fill with 0x00
-    for (usize i = 0; i < total_block; ++i)
-    {
+    for (usize i = 0; i < total_block; ++i) {
       auto offset = i * KEY_BYTE;
       auto sub = bytes.subspan(offset, KEY_BYTE);
       // PERF: insert the result directly on vector instead of returning array
@@ -163,8 +116,11 @@ namespace ar
   }
 
   std::expected<std::array<u8, KEY_BYTE>, std::string_view> Camellia::decrypt(
-      block_type cipher_block) const noexcept
+    block_type cipher_block) const noexcept
   {
+    if (!is_initialized_)
+      return std::unexpected("key is empty");
+
     if (cipher_block.size() != KEY_BYTE)
       return std::unexpected("block should be 16 bytes long!");
 
@@ -173,9 +129,8 @@ namespace ar
     auto d2 = (cipher >> 64).convert_to<u64>();
     auto d1 = (cipher & MASK_64BIT).convert_to<u64>();
 
-    auto round = [this](u64& d1, u64& d2, usize i) {
-      for (std::size_t j = 0; j < 3; ++j)
-      {
+    auto round = [this](u64 &d1, u64 &d2, usize i) {
+      for (std::size_t j = 0; j < 3; ++j) {
         auto x = i - (j * 2);
         d2 = d2 ^ F(d1, k_[x]);
         d1 = d1 ^ F(d2, k_[x - 1]);
@@ -186,11 +141,9 @@ namespace ar
     d1 = d1 ^ kw_[2];
     d2 = d2 ^ kw_[3];
 
-    for (usize i = 0; i < 3; ++i)
-    {
+    for (usize i = 0; i < 3; ++i) {
       round(d1, d2, (18 - i * 6) - 1);
-      if (i < 2)
-      {
+      if (i < 2) {
         d1 = FL(d1, ke_[3 - (i * 2 + 0)]);     // 3, 1
         d2 = FLINV(d2, ke_[3 - (i * 2 + 1)]);  // 2, 0
       }
@@ -212,8 +165,7 @@ namespace ar
 
     std::vector<u8> result{};
     result.reserve(bytes.size());
-    for (usize byte = 0; byte < bytes.size(); byte += 16)
-    {
+    for (usize byte = 0; byte < bytes.size(); byte += 16) {
       auto a = bytes.subspan(byte, KEY_BYTE);
       auto decipher = decrypt(a).value();
       // result.insert_range(result.end(), decipher);
@@ -227,7 +179,7 @@ namespace ar
 
   Camellia::key_type Camellia::key() const noexcept
   {
-    return key_type{key_};
+    return key_;
   }
 
   u64 Camellia::F(u64 in, u64 ke) const noexcept
@@ -300,4 +252,88 @@ namespace ar
     right ^= std::rotl(left & subkey_msb, 1);
     return combine<u64>(right, left);
   }
+
+  Camellia::Camellia(const Camellia &other) noexcept
+    : Camellia(other.key_)
+  {
+  }
+
+  Camellia &Camellia::operator=(const Camellia &other) noexcept
+  {
+    if (this == &other)
+      return *this;
+
+    schedule_key(other.key_);
+    return *this;
+  }
+
+  Camellia::Camellia(Camellia &&other) noexcept
+    : Camellia(other.key_)
+  {
+
+  }
+
+  Camellia &Camellia::operator=(Camellia &&other) noexcept
+  {
+    if (this == &other)
+      return *this;
+
+    schedule_key(other.key_);
+    return *this;
+  }
+
+  void Camellia::schedule_key(key_type key) noexcept
+  {
+    // set key
+    for (const auto &[i, byte]: key | std::views::enumerate)
+      key_[i] = byte;
+
+    // TODO: use key_ instead of key from parameter
+    u128 kl = rawToBoost_uint128(key.data());
+    u128 kr = 0;  // key size is 128 bit
+
+    auto XORED = kl ^ kr;
+    // WARN: Need to check the convert result
+    auto d1 = (XORED >> 64).convert_to<u64>();
+    auto d2 = (XORED & MASK_64BIT).convert_to<u64>();
+
+    d2 = d2 ^ F(d1, SIGMA[0]);
+    d1 = d1 ^ F(d2, SIGMA[1]);
+    d1 = d1 ^ (kl >> 64).convert_to<u64>();
+    d2 = d2 ^ (kl & MASK_64BIT).convert_to<u64>();
+    d2 = d2 ^ F(d1, SIGMA[2]);
+    d1 = d1 ^ F(d2, SIGMA[3]);
+    ka_ = d1;
+    ka_ = (ka_ << 64) | d2;
+
+    kw_[0] = (kl >> 64).convert_to<u64>();
+    kw_[1] = (kl & MASK_64BIT).convert_to<u64>();
+    k_[0] = (ka_ >> 64).convert_to<u64>();
+    k_[1] = (ka_ & MASK_64BIT).convert_to<u64>();
+    k_[2] = (ar::rotl(kl, 15) >> 64).convert_to<u64>();
+    k_[3] = (ar::rotl(kl, 15) & MASK_64BIT).convert_to<u64>();
+    k_[4] = (ar::rotl(ka_, 15) >> 64).convert_to<u64>();
+    k_[5] = (ar::rotl(ka_, 15) & MASK_64BIT).convert_to<u64>();
+    ke_[0] = (ar::rotl(ka_, 30) >> 64).convert_to<u64>();
+    ke_[1] = (ar::rotl(ka_, 30) & MASK_64BIT).convert_to<u64>();
+    k_[6] = (ar::rotl(kl, 45) >> 64).convert_to<u64>();
+    k_[7] = (ar::rotl(kl, 45) & MASK_64BIT).convert_to<u64>();
+    k_[8] = (ar::rotl(ka_, 45) >> 64).convert_to<u64>();
+    k_[9] = (ar::rotl(kl, 60) & MASK_64BIT).convert_to<u64>();
+    k_[10] = (ar::rotl(ka_, 60) >> 64).convert_to<u64>();
+    k_[11] = (ar::rotl(ka_, 60) & MASK_64BIT).convert_to<u64>();
+    ke_[2] = (ar::rotl(kl, 77) >> 64).convert_to<u64>();
+    ke_[3] = (ar::rotl(kl, 77) & MASK_64BIT).convert_to<u64>();
+    k_[12] = (ar::rotl(kl, 94) >> 64).convert_to<u64>();
+    k_[13] = (ar::rotl(kl, 94) & MASK_64BIT).convert_to<u64>();
+    k_[14] = (ar::rotl(ka_, 94) >> 64).convert_to<u64>();
+    k_[15] = (ar::rotl(ka_, 94) & MASK_64BIT).convert_to<u64>();
+    k_[16] = (ar::rotl(kl, 111) >> 64).convert_to<u64>();
+    k_[17] = (ar::rotl(kl, 111) & MASK_64BIT).convert_to<u64>();
+    kw_[2] = (ar::rotl(ka_, 111) >> 64).convert_to<u64>();
+    kw_[3] = (ar::rotl(ka_, 111) & MASK_64BIT).convert_to<u64>();
+
+    is_initialized_ = true;
+  }
+
 }  // namespace ar

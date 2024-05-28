@@ -33,6 +33,8 @@ namespace ar
     Login,
     Register,
     StorePublicKey,
+    StoreSymmetricKey,
+    GetServerDetails,
     GetUserOnline,
     SendFile,
     GetUserDetails,

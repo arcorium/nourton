@@ -37,10 +37,6 @@ namespace ar
                              acceptor_.local_endpoint().port()));
 
     asio::co_spawn(strand_, [this] { return connection_acceptor(); }, asio::detached);
-
-    // m_acceptor.async_accept(asio::bind_executor(
-    //   m_strand, std::bind(&Server::connection_handler, this,
-    //                       asio::placeholders::error, std::placeholders::_2)));
   }
 
   void Server::on_message_in(Connection& conn, const Message& msg) noexcept

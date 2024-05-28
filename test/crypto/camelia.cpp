@@ -10,6 +10,7 @@
 #include "util.h"
 #include "util/convert.h"
 #include "util/file.h"
+#include "util/algorithm.h"
 
 TEST(camellia, sbox)
 {
@@ -19,8 +20,7 @@ TEST(camellia, sbox)
     sboxes[0][i] = std::rotl(ar::SBOX1[i], 1);
   for (size_t i = 0; i < 256; ++i)
     sboxes[1][i] = std::rotl(ar::SBOX1[i], 7);
-  for (size_t i = 0; i < 256; ++i)
-  {
+  for (size_t i = 0; i < 256; ++i) {
     u8 j = std::rotl<u8>(i, 1);
     sboxes[2][i] = ar::SBOX1[j];
   }
@@ -46,7 +46,7 @@ TEST(camellia, camellia_block)
   auto b = ar::Camellia::create("mzmzlakanabc");
   EXPECT_EQ(b.has_value(), false);
 
-  auto& camellia = a.value();
+  auto &camellia = a.value();
 
   std::string_view text{"hello my name is"};
   auto text_span = ar::as_span(text);
@@ -55,8 +55,7 @@ TEST(camellia, camellia_block)
   auto cipher = camellia.encrypt(text_span);
   auto decipher = camellia.decrypt(cipher.value()).value();
 
-  for (size_t i = 0; i < 16; ++i)
-  {
+  for (size_t i = 0; i < 16; ++i) {
     SCOPED_TRACE(i);
     ASSERT_EQ(decipher[i], text_span[i]);
   }
@@ -73,7 +72,7 @@ TEST(camellia, camellia)
 
   check_span_eq<const u8>(keys, orig_spans);
 
-  auto& camellia = a.value();
+  auto &camellia = a.value();
   auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv;  // 74
   auto text_span = ar::as_span(text);
   EXPECT_EQ(text_span.size(), text.size());
@@ -93,14 +92,10 @@ TEST(camellia, camellia)
 
 TEST(camellia, random_generated_key)
 {
-  auto a = ar::Camellia{};
+  auto key = ar::random_bytes<ar::KEY_BYTE>();
+  auto a = ar::Camellia{ar::Camellia::key_type{key}};
 
-  std::array<u8, 16> zeroeth_key{};
-  zeroeth_key.fill(0);
-
-  check_span_ne<const u8, u8>(a.key(), zeroeth_key);
-
-  auto& camellia = a;
+  auto &camellia = a;
   auto text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque placerat."sv;  // 74
   auto text_span = ar::as_span(text);
   EXPECT_EQ(text_span.size(), text.size());
@@ -118,13 +113,36 @@ TEST(camellia, random_generated_key)
   check_span_eq<u8>(decipher, text_span);
 }
 
+TEST(camellia, unconstructed)
+{
+  auto a = ar::Camellia{};
+  auto data = ar::random_bytes<16>();
+  auto enc_result = a.encrypt(data);
+  ASSERT_FALSE(enc_result.has_value());
+
+  auto dec_result = a.decrypt(data);
+  ASSERT_FALSE(dec_result.has_value());
+}
+
+TEST(camellia, moved_object)
+{
+  auto a = ar::Camellia{};
+  auto data = ar::random_bytes<16>();
+  auto enc_result = a.encrypt(data);
+  ASSERT_FALSE(enc_result.has_value());
+
+  auto keys = ar::random_bytes<ar::KEY_BYTE>();
+  a = ar::Camellia{keys};
+  enc_result = a.encrypt(data);
+  ASSERT_TRUE(enc_result.has_value());
+}
+
 TEST(camellia, encrypt_file)
 {
   auto plain_result = ar::read_file_as_bytes("../../resource/image/docs.png");
   ASSERT_TRUE(plain_result.has_value());
 
-  for (usize i = 0; i < 100; ++i)
-  {
+  for (usize i = 0; i < 100; ++i) {
     ar::Camellia camellia{};
 
     auto [filler, cipher] = camellia.encrypts(plain_result.value());
