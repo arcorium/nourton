@@ -102,6 +102,7 @@ namespace ar
          0x07, 0x55, 0xEE, 0x0A, 0x49, 0x68, 0x38, 0xA4, 0x28, 0x7B, 0xC9, 0xC1, 0xE3, 0xF4, 0xC7,
          0x9E};
 
+
   class Camellia
   {
   public:
@@ -125,6 +126,13 @@ namespace ar
      * @return Camellia object instance or error message
      */
     static std::expected<Camellia, std::string_view> create(std::string_view key) noexcept;
+
+    /**
+     * create Camellia instance with random generated key
+     * @param key secret key with 16 bytes long
+     * @return Camellia object instance or error message
+     */
+    static Camellia create() noexcept;
 
     /**
      * encrypt single block, it will only return error message when the cipher_block is not 16 bytes
@@ -181,4 +189,4 @@ namespace ar
     u64 k_[18]{};
     u64 ke_[4]{};
   };
-}  // namespace ar
+} // namespace ar

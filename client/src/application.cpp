@@ -38,6 +38,7 @@ namespace ar
   Application::Application(asio::io_context& ctx, Window window, std::string_view ip, u16 port,
                            std::string_view save_dir) noexcept
     : is_running_{false},
+      is_exchange_key_{false},
       context_{ctx},
       state_{PageState::Login},
       window_{std::move(window)},
@@ -155,8 +156,16 @@ namespace ar
     std::atomic_bool is_ready_;
     asio::co_spawn(context_, client_.start(), [&](std::exception_ptr a, bool res) {
       if (!res)
+      {
         Logger::error("failed to connect to remote");
+        is_ready_.store(true);
+        return;
+      }
       // window_.exit();
+      // Wait for server details
+      is_exchange_key_ = true;
+      state_.active_loading_overlay();
+      state_.expect_operation_state(OperationState::GetServerDetails);
       is_ready_.store(true);
     });
 
@@ -814,7 +823,7 @@ namespace ar
 
     // handle register
     RegisterPayload payload{username_, password_};
-    client_.write(std::move(payload), User::SERVER_ID);
+    client_.write<true>(std::move(payload), User::SERVER_ID);
 
     state_.active_loading_overlay();
     state_.expect_operation_state(OperationState::Register);
@@ -838,7 +847,7 @@ namespace ar
 
     // handle login
     LoginPayload payload{.username = username_, .password = password_};
-    client_.write(std::move(payload), User::SERVER_ID);
+    client_.write<true>(std::move(payload), User::SERVER_ID);
 
     state_.active_loading_overlay();
     state_.expect_operation_state(OperationState::Login);
@@ -865,7 +874,7 @@ namespace ar
     if (!user.public_key.is_valid())
     {
       GetUserDetailsPayload user_details_payload{.id = user.id};
-      client_.write(std::move(user_details_payload), User::SERVER_ID);
+      client_.write<true>(std::move(user_details_payload), User::SERVER_ID);
 
       state_.expect_operation_state(OperationState::GetUserDetails);
       state_.active_loading_overlay();
@@ -894,9 +903,6 @@ namespace ar
       return;
     }
 
-    GetServerDetailsPayload server_payload{};
-    client_.write<GetServerDetailsPayload, false>(std::move(server_payload), User::SERVER_ID);
-
     // set current user
     // TODO: get self user detail from server
     this_user_
@@ -904,7 +910,13 @@ namespace ar
     // start thread
     send_file_thread_ = std::thread{&Application::send_file_thread, this};
 
-    state_.expect_operation_state(OperationState::GetUserDetails);
+    // store payload
+    StorePublicKeyPayload public_key_payload{
+        .key = ar::serialize(client_.asymmetric_encryptor().public_key())};
+
+    client_.write<true>(std::move(public_key_payload), server_->id);
+
+    state_.expect_operation_state(OperationState::StorePublicKey);
     state_.active_loading_overlay(); // make it loading on login page
   }
 
@@ -949,34 +961,6 @@ namespace ar
     state_.active_page(PageState::Dashboard);
   }
 
-  void Application::get_user_details_feedback_handler(const FeedbackPayload& payload) noexcept
-  {
-    if (state_.expected_operation_state() != OperationState::GetUserDetails)
-    {
-      Logger::warn(fmt::format("got unexpected reponse"));
-      return;
-    }
-
-    Logger::error(fmt::format("error on getting user details: {}", payload.message));
-    state_.operation_state_complete();
-    state_.disable_loading_overlay();
-    state_.active_overlay(OverlayState::InternalError);
-  }
-
-  void Application::get_user_online_feedback_handler(const FeedbackPayload& payload) noexcept
-  {
-    if (state_.expected_operation_state() != OperationState::GetUserOnline)
-    {
-      Logger::warn(fmt::format("got unexpected reponse"));
-      return;
-    }
-
-    Logger::error(fmt::format("error on getting user onlines: {}", payload.message));
-    state_.operation_state_complete();
-    state_.disable_loading_overlay();
-    state_.active_overlay(OverlayState::InternalError);
-  }
-
   void Application::store_public_key_feedback_handler(const FeedbackPayload& payload) noexcept
   {
     if (state_.expected_operation_state() != OperationState::StorePublicKey)
@@ -997,7 +981,7 @@ namespace ar
 
     // Get user onlines
     GetUserOnlinePayload user_online_payload{};
-    client_.write(std::move(user_online_payload), User::SERVER_ID);
+    client_.write<true>(std::move(user_online_payload), server_->id);
 
     state_.active_loading_overlay(); // make it loading and still on loading page
     state_.expect_operation_state(OperationState::GetUserOnline);
@@ -1012,23 +996,16 @@ namespace ar
     }
 
     state_.operation_state_complete();
+    state_.disable_loading_overlay();
 
     // failed to store
     if (!payload.response)
     {
-      state_.disable_loading_overlay();
       state_.active_overlay(OverlayState::InternalError);
       return;
     }
 
-    // store public keys and encrypt using symmetric key
-    auto key = client_.asymmetric_encryptor().public_key();
-
-    StorePublicKeyPayload user_online_payload{.key = ar::serialize(key)};
-    client_.write(std::move(user_online_payload), User::SERVER_ID);
-
-    state_.active_loading_overlay(); // make it loading and still on loading page
-    state_.expect_operation_state(OperationState::StorePublicKey);
+    is_exchange_key_ = false; // key exchange is done
   }
 
   void Application::on_file_drop(std::string_view paths) noexcept
@@ -1071,35 +1048,41 @@ namespace ar
   {
     switch (payload.id)
     {
-    case PayloadId::Login: {
+    case FeedbackId::Login: {
       login_feedback_handler(payload);
       break;
     }
-    case PayloadId::Register: {
+    case FeedbackId::Register: {
       register_feedback_handler(payload);
       break;
     }
-    case PayloadId::SendFile: {
+    case FeedbackId::SendFile: {
       send_file_feedback_handler(payload);
       break;
     }
-    case PayloadId::GetUserDetails: {
+    case FeedbackId::GetUserDetails: {
       // GetUserDetails payload will only respond Feedback when there is
       // error happens
-      get_user_details_feedback_handler(payload);
+      on_error_feedback_handler<OperationState::GetUserDetails>(payload);
       break;
     }
-    case PayloadId::GetUserOnline: {
+    case FeedbackId::GetServerDetails: {
+      // GetServerDetials payload will only respond Feedback when there is
+      // error happens
+      on_error_feedback_handler<OperationState::GetServerDetails>(payload);
+      break;
+    }
+    case FeedbackId::GetUserOnline: {
       // GetUserOnline payload will only respond Feedback when there is error
       // happens
-      get_user_online_feedback_handler(payload);
+      on_error_feedback_handler<OperationState::GetUserOnline>(payload);
       break;
     }
-    case PayloadId::StorePublicKey: {
+    case FeedbackId::StorePublicKey: {
       store_public_key_feedback_handler(payload);
       break;
     }
-    case PayloadId::StoreSymmetricKey: {
+    case FeedbackId::StoreSymmetricKey: {
       store_symmetric_key_feedback_handler(payload);
       break;
     }
@@ -1276,18 +1259,28 @@ namespace ar
     auto result = deserialize(payload.public_key);
     if (!result)
     {
+      state_.disable_loading_overlay();
+      state_.active_overlay(OverlayState::InternalError);
       Logger::critical(fmt::format("failed to get server public key: {}", result.error()));
       return;
     }
 
     server_ = std::make_unique<UserClient>(true, payload.id, "SERVER", result.value());
 
-    // Store the symmetric key and encrypt it using server public key
-    auto key = client_.symmetric_encryptor().key();
-    StoreSymmetricKeyPayload store_payload{.key = {key.begin(), key.end()}};
-    client_.write(server_->public_key, std::move(store_payload), User::SERVER_ID);
+    if (is_exchange_key_)
+    {
+      // Store the symmetric key and encrypt it using server public key
+      auto key = client_.symmetric_encryptor().key();
+      StoreSymmetricKeyPayload store_payload{.key = {key.begin(), key.end()}};
+      // encrypt
+      client_.write(server_->public_key, std::move(store_payload), server_->id);
+
+      state_.active_loading_overlay();
+      state_.expect_operation_state(OperationState::StoreSymmetricKey);
+      return;
+    }
 
     state_.operation_state_complete();
-    state_.expect_operation_state(OperationState::StoreSymmetricKey);
+    state_.disable_loading_overlay();
   }
 } // namespace ar

@@ -63,6 +63,11 @@ namespace ar
     template <typename Self>
     auto&& user(this Self&& self) noexcept;
 
+    template <typename Self>
+    auto&& symmetric_encryptor(this Self&& self) noexcept;
+
+    void symmetric_encryptor(symm_type::key_type key) noexcept;
+
     void user(User* user) noexcept;
 
   private:
@@ -83,14 +88,16 @@ namespace ar
     std::atomic_bool is_closing_;
 
     asio::steady_timer write_timer_;
-    std::queue<Message> write_message_queue_;  // WARN: need mutex?
+    std::queue<Message> write_message_queue_; // WARN: need mutex?
     asio::ip::tcp::socket socket_;
+
+    symm_type symmetric_encryptor_; // Used for communicating between client and server
   };
 
   template <typename T>
     requires std::derived_from<T, IMessageHandler> && std::derived_from<T, IConnectionHandler>
   Connection::Connection(asio::ip::tcp::socket&& socket, T* handler) noexcept
-      : Connection{std::forward<decltype(socket)>(socket), handler, handler}
+    : Connection{std::forward<decltype(socket)>(socket), handler, handler}
   {
   }
 
@@ -119,4 +126,10 @@ namespace ar
   {
     return std::forward<Self>(self).user_;
   }
-}  // namespace ar
+
+  template <typename Self>
+  auto&& Connection::symmetric_encryptor(this Self&& self) noexcept
+  {
+    return std::forward<Self>(self).symmetric_encryptor_;
+  }
+} // namespace ar

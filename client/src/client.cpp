@@ -31,7 +31,8 @@ namespace ar
     : event_handler_{event_handler},
       executor_{std::move(executor)},
       endpoint_{std::move(endpoint)},
-      connection_{executor_}
+      connection_{executor_},
+      symm_encryptor_{Camellia::create()}
   {
     Logger::info(fmt::format("client connecting to {}: {}", endpoint_.address().to_string(),
                              endpoint_.port()));
@@ -107,7 +108,7 @@ namespace ar
         .files = std::move(enc_result.cipher_data)
     };
 
-    write(pk, std::move(payload), opponent_id);
+    write<false>(std::move(payload), opponent_id);
     return true;
   }
 
@@ -196,7 +197,7 @@ namespace ar
         event_handler_->on_user_logout(result.value());
       break;
     }
-    case Message::Type::UserOnlineResponse: {
+    case Message::Type::GetUserOnline: {
       auto result = get_payload<UserOnlinePayload>(msg);
       if (!result)
       {
@@ -207,7 +208,7 @@ namespace ar
         event_handler_->on_user_online_response(result.value());
       break;
     }
-    case Message::Type::UserDetailsResponse: {
+    case Message::Type::GetUserDetails: {
       auto result = get_payload<UserDetailPayload>(msg);
       if (!result)
       {
@@ -219,7 +220,7 @@ namespace ar
         event_handler_->on_user_detail_response(result.value());
       break;
     }
-    case Message::Type::ServerDetailResponse: {
+    case Message::Type::GetServerDetail: {
       auto result = get_payload<ServerDetailsPayload>(msg);
       if (!result)
       {

@@ -182,6 +182,9 @@ namespace ar
     }
   };
 
+
+  // create message, with bytes as payload. the payload could be encrypted first, because this function
+  // only create a message and the payload is copied instead of referenced.
   template <Message::Type MsgType, Message::EncryptionType EncryptType =
                 Message::EncryptionType::None>
   static constexpr Message create_message(std::span<u8> payload,
@@ -224,7 +227,7 @@ namespace ar
     }
     if constexpr (std::same_as<T, UserOnlinePayload>)
     {
-      return Message::Type::UserOnlineResponse;
+      return Message::Type::GetUserOnline;
     }
     if constexpr (std::same_as<T, GetUserDetailsPayload>)
     {
@@ -232,7 +235,7 @@ namespace ar
     }
     if constexpr (std::same_as<T, UserDetailPayload>)
     {
-      return Message::Type::UserDetailsResponse;
+      return Message::Type::GetUserDetails;
     }
     if constexpr (std::same_as<T, GetServerDetailsPayload>)
     {
@@ -240,7 +243,7 @@ namespace ar
     }
     if constexpr (std::same_as<T, ServerDetailsPayload>)
     {
-      return Message::Type::ServerDetailResponse;
+      return Message::Type::GetServerDetail;
     }
     if constexpr (std::same_as<T, SendFilePayload>)
     {

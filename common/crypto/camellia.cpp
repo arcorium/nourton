@@ -42,6 +42,13 @@ namespace ar
     return Camellia{key_bytes};
   }
 
+  Camellia Camellia::create() noexcept
+  {
+    auto bytes = ar::random_bytes<KEY_BYTE>();
+    Camellia camellia{bytes};
+    return camellia;
+  }
+
   std::expected<std::array<unsigned char, KEY_BYTE>, std::string_view> Camellia::encrypt(
     block_type block) const noexcept
   {
@@ -94,7 +101,6 @@ namespace ar
     std::vector<u8> result{};
     result.reserve(bytes.size() + fill);
 
-    // TODO: Fill with 0x00
     for (usize i = 0; i < total_block; ++i) {
       auto offset = i * KEY_BYTE;
       auto sub = bytes.subspan(offset, KEY_BYTE);

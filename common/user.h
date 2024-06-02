@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 
+#include "crypto/camellia.h"
 #include "util/types.h"
 
 namespace ar
@@ -14,7 +15,7 @@ namespace ar
     id_type id;
     std::string name;
     std::string password;
-    std::vector<u8> public_key;
+    std::vector<u8> public_key; // serialized
   };
 
   struct UserResponse

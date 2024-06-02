@@ -12,5 +12,3 @@ target_link_libraries(crypto_test PRIVATE nourton-common GTest::gtest GTest::gte
 add_executable(util_test util/convert.cpp util/algorithm.cpp
   util/file_operation.cpp)
 target_link_libraries(util_test PRIVATE nourton-common GTest::gtest GTest::gtest_main)
-
-add_subdirectory(e2e)

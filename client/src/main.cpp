@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
     return -1;
 
   ar::Logger::set_current_thread_name("MAIN");
-  ar::Logger::set_minimum_level(ar::Logger::Level::Critical);
+  ar::Logger::set_minimum_level(ar::Logger::Level::Trace);
 
   if constexpr (!AR_DEBUG)
   {
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
   auto save_dir = program.get<std::string>("-d");
   auto port = program.get<u16>("-p");
 
-  // check if ip provided is valid
+  // check if ip provided valid
   asio::error_code ec;
   asio::ip::make_address_v4(ip_str, ec);
   if (ec)

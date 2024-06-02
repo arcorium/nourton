@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <mutex>
 #include <condition_variable>
+#include <magic_enum.hpp>
 
 #include "client.h"
 #include "crypto/dm_rsa.h"
@@ -59,15 +60,17 @@ namespace ar
     void login_feedback_handler(const FeedbackPayload& payload) noexcept;
     void register_feedback_handler(const FeedbackPayload& payload) noexcept;
     void send_file_feedback_handler(const FeedbackPayload& payload) noexcept;
-    void get_user_details_feedback_handler(const FeedbackPayload& payload) noexcept;
-    void get_user_online_feedback_handler(const FeedbackPayload& payload) noexcept;
     void store_public_key_feedback_handler(const FeedbackPayload& payload) noexcept;
     void store_symmetric_key_feedback_handler(const FeedbackPayload& payload) noexcept;
+    // it is used to handle payload that have response
+    template <OperationState Expected>
+    void on_error_feedback_handler(const FeedbackPayload& payload) noexcept;
 
     void on_file_drop(std::string_view paths) noexcept;
 
     void delete_file_on_dashboard(usize file_index) noexcept;
     void open_file_on_dashboard(usize file_index) noexcept;
+
 
     // Callback, called by io thread
   public:
@@ -89,6 +92,7 @@ namespace ar
 
   private:
     bool is_running_;
+    bool is_exchange_key_;
 
     asio::io_context& context_;
     State state_;
@@ -129,4 +133,20 @@ namespace ar
 
     Client client_;
   };
+
+  template <OperationState Expected>
+  void Application::on_error_feedback_handler(const FeedbackPayload& payload) noexcept
+  {
+    if (state_.expected_operation_state() != Expected)
+    {
+      Logger::warn(fmt::format("got unexpected reponse"));
+      return;
+    }
+
+    Logger::error(fmt::format("error on {}: {}", magic_enum::enum_name<Expected>(),
+                              payload.message));
+    state_.operation_state_complete();
+    state_.disable_loading_overlay();
+    state_.active_overlay(OverlayState::InternalError);
+  }
 } // namespace ar

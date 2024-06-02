@@ -32,11 +32,11 @@ namespace ar
       StorePublicKey,
       StoreSymmetricKey,
       GetUserOnline,
-      UserOnlineResponse,
+      // UserOnlineResponse,
       GetUserDetails,
-      UserDetailsResponse,
+      // UserDetailsResponse,
       GetServerDetail,
-      ServerDetailResponse,
+      // ServerDetailResponse,
       SendFile,
       // ---Signal
       UserLogout,
@@ -61,6 +61,11 @@ namespace ar
       EncryptionType encryption;
       Type message_type;
       opponent_id_type opponent_id; // 0 = server
+
+      [[nodiscard]] u64 real_size() const noexcept
+      {
+        return body_size - body_filler;
+      }
     };
 
     constexpr static u8 header_size = sizeof(Header);
@@ -99,6 +104,11 @@ namespace ar
     [[nodiscard]] Header const* as_header() const noexcept
     {
       return reinterpret_cast<Header const*>(header.data());
+    }
+
+    [[nodiscard]] Header* as_header() noexcept
+    {
+      return reinterpret_cast<Header*>(header.data());
     }
 
     template <typename T>

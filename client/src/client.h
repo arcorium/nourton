@@ -50,7 +50,7 @@ namespace ar
     // send payload with conditional symmetric encrypting.
     // if the Encrypt is false, then no encrypting process will be applied on the payload
     // which is currently used for send file payload.
-    template <serializable T, bool Encrypt = true>
+    template <bool Encrypt, serializable T>
     void write(T&& payload, Message::Header::opponent_id_type opponent_id) noexcept;
 
     bool send_file(const asymm_enc::_public_key& pk, std::string_view filepath,
@@ -77,7 +77,6 @@ namespace ar
     asio::ip::tcp::endpoint endpoint_;
 
     Connection connection_;
-    // TODO: Move all encrypting thingies in here instead of on application
     DMRSA asymm_encryptor_;
     Camellia symm_encryptor_;
   };
@@ -88,6 +87,7 @@ namespace ar
     return std::forward<Self>(self).executor_;
   }
 
+  // Write message and encrypt using asymmetric key
   template <serializable T>
   void Client::write(const asymm_enc::_public_key& pk, T&& payload,
                      Message::Header::opponent_id_type opponent_id) noexcept
@@ -104,7 +104,7 @@ namespace ar
     connection_.write(std::move(msg));
   }
 
-  template <serializable T, bool Encrypt>
+  template <bool Encrypt, serializable T>
   void Client::write(T&& payload, Message::Header::opponent_id_type opponent_id) noexcept
   {
     constexpr auto type = get_payload_type<T>();

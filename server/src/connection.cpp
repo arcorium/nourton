@@ -18,14 +18,14 @@ namespace ar
 {
   Connection::Connection(asio::ip::tcp::socket&& socket, IMessageHandler* message_handler,
                          IConnectionHandler* connection_handler) noexcept
-      : message_handler_{message_handler},
-        connection_handler_{connection_handler},
-        id_{s_current_id.fetch_add(1)},
-        user_{},
-        is_closing_{false},
-        // is_closing is false at the constructor due to the socket should be already connected
-        write_timer_{socket.get_executor(), std::chrono::steady_clock::time_point::max()},
-        socket_{std::forward<decltype(socket)>(socket)}
+    : message_handler_{message_handler},
+      connection_handler_{connection_handler},
+      id_{s_current_id.fetch_add(1)},
+      user_{},
+      is_closing_{false},
+      // is_closing is false at the constructor due to the socket should be already connected
+      write_timer_{socket.get_executor(), std::chrono::steady_clock::time_point::max()},
+      socket_{std::forward<decltype(socket)>(socket)}
   {
   }
 
@@ -36,14 +36,14 @@ namespace ar
   }
 
   Connection::Connection(Connection&& other) noexcept
-      : message_handler_(other.message_handler_),
-        connection_handler_(other.connection_handler_),
-        id_(other.id_),
-        user_(other.user_),
-        is_closing_(other.is_closing_.exchange(true)),
-        write_timer_(std::move(other.write_timer_)),
-        write_message_queue_(std::move(other.write_message_queue_)),
-        socket_(std::move(other.socket_))
+    : message_handler_(other.message_handler_),
+      connection_handler_(other.connection_handler_),
+      id_(other.id_),
+      user_(other.user_),
+      is_closing_(other.is_closing_.exchange(true)),
+      write_timer_(std::move(other.write_timer_)),
+      write_message_queue_(std::move(other.write_message_queue_)),
+      socket_(std::move(other.socket_))
   {
     other.id_ = std::numeric_limits<id_type>::max();
     other.user_ = nullptr;
@@ -83,10 +83,14 @@ namespace ar
   {
     Logger::info(fmt::format("Connection-{} started!", id_));
     asio::co_spawn(
-        socket_.get_executor(), [self = shared_from_this()] { return self->reader(); },
+        socket_.get_executor(), [self = shared_from_this()] {
+          return self->reader();
+        },
         asio::detached);
     asio::co_spawn(
-        socket_.get_executor(), [self = shared_from_this()] { return self->writer(); },
+        socket_.get_executor(), [self = shared_from_this()] {
+          return self->writer();
+        },
         asio::detached);
   }
 
@@ -106,7 +110,7 @@ namespace ar
   {
     if (!is_open())
     {
-      Logger::warn(fmt::format(
+      Logger::error(fmt::format(
           "Could not send data to connection-{} because the socket already closed", id_));
       return;
     }
@@ -132,6 +136,11 @@ namespace ar
   bool Connection::is_authenticated() const noexcept
   {
     return user_;
+  }
+
+  void Connection::symmetric_encryptor(symm_type::key_type key) noexcept
+  {
+    symmetric_encryptor_ = symm_type{key};
   }
 
   void Connection::user(User* user) noexcept
@@ -164,8 +173,8 @@ namespace ar
       }
       {
         auto header = message.as_header();
-        message.body.resize(header->body_size);  // NOTE: need to resize instead of reserve because
-                                                 // of using asio::buffer
+        message.body.resize(header->body_size); // NOTE: need to resize instead of reserve because
+        // of using asio::buffer
         auto [ec, n] = co_await asio::async_read(socket_, asio::buffer(message.body),
                                                  asio::transfer_exactly(header->body_size),
                                                  ar::await_with_error());
@@ -235,8 +244,5 @@ namespace ar
       write_message_queue_.pop();
     }
     Logger::trace(fmt::format("Connection-{} no longer sending message!", id_));
-    // if (m_connection_handler)
-    // m_connection_handler->on_connection_closed(*this); // TODO: Change this, when the connection
-    // removed from connection_handler, the class itself could be still used on some async actions
   }
-}  // namespace ar
+} // namespace ar
