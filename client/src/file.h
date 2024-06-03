@@ -30,9 +30,10 @@ namespace ar
 
   struct FileProperty
   {
+    bool is_received; // either sent or received
     FileFormat format;
-    usize size;  // in byte
-    UserClient* sender;
+    usize size; // in byte
+    UserClient* opponent;
     // std::string filename;
     std::string fullpath;
     std::string timestamp;
@@ -77,8 +78,8 @@ namespace ar
 
     std::string_view format_str = filepath.substr(last_idx + 1);
     constexpr static std::string_view image_formats[]{
-        "jpeg"sv, "jpg"sv,  "png"sv,  "gif"sv,  "tiff"sv, "bmp"sv,
-        "svg"sv,  "webp"sv, "heif"sv, "heic"sv, "raw"sv,  "dds"sv,
+        "jpeg"sv, "jpg"sv, "png"sv, "gif"sv, "tiff"sv, "bmp"sv,
+        "svg"sv, "webp"sv, "heif"sv, "heic"sv, "raw"sv, "dds"sv,
     };
 
     constexpr static std::string_view archive_formats[]{
@@ -87,18 +88,24 @@ namespace ar
 
     constexpr static std::string_view document_formats[]{
         "pdf"sv, "docx"sv, "doc"sv, "xlsx"sv, "xls"sv, "pptx"sv,
-        "ppt"sv, "odt"sv,  "ods"sv, "odp"sv,  "txt"sv,
+        "ppt"sv, "odt"sv, "ods"sv, "odp"sv, "txt"sv,
     };
 
     if (std::ranges::any_of(image_formats,
-                            [&](std::string_view format) { return format == format_str; }))
+                            [&](std::string_view format) {
+                              return format == format_str;
+                            }))
       return std::make_tuple(FileFormat::Image, format_str);
     if (std::ranges::any_of(archive_formats,
-                            [&](std::string_view format) { return format == format_str; }))
+                            [&](std::string_view format) {
+                              return format == format_str;
+                            }))
       return std::make_tuple(FileFormat::Archive, format_str);
     if (std::ranges::any_of(document_formats,
-                            [&](std::string_view format) { return format == format_str; }))
+                            [&](std::string_view format) {
+                              return format == format_str;
+                            }))
       return std::make_tuple(FileFormat::Document, format_str);
     return std::make_tuple(FileFormat::Other, format_str);
   }
-}  // namespace ar
+} // namespace ar

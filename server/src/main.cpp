@@ -13,9 +13,9 @@ void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
 {
   program.add_argument("-i", "--ip").help("ip of remote server").default_value("0.0.0.0");
   program.add_argument("-p", "--port")
-      .help("port of remove server")
-      .scan<'u', u16>()
-      .default_value(1291_u16);
+         .help("port of remove server")
+         .scan<'u', u16>()
+         .default_value(1291_u16);
 
   program.parse_args(argc, argv);
 }
@@ -23,6 +23,8 @@ void cli(argparse::ArgumentParser& program, int argc, char* argv[]) noexcept
 int main(int argc, char* argv[])
 {
   ar::Logger::set_current_thread_name("MAIN");
+
+  ar::Logger::set_minimum_level(ar::Logger::Level::Trace);
   if constexpr (!AR_DEBUG)
   {
     ar::Logger::set_minimum_level(ar::Logger::Level::Info);
@@ -40,7 +42,7 @@ int main(int argc, char* argv[])
 
   asio::error_code ec;
   auto ip = asio::ip::make_address_v4(ip_str, ec);
-  if (ec)  // exit
+  if (ec) // exit
     ar::Logger::critical(fmt::format("could not listen to ip: {}", ip_str));
 
   asio::ip::tcp::endpoint ep{ip, port};

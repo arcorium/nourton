@@ -310,7 +310,7 @@ namespace ar
       std::string_view filepath = data.file_fullpath;
       std::string_view filename = get_filename_with_format(filepath);
 
-      UserClient* user{};
+      UserClient* opponent_user{};
       {
         std::unique_lock lock{user_mutex_};
 
@@ -326,12 +326,12 @@ namespace ar
           continue;
         }
 
-        user = &*it;
+        opponent_user = &*it;
       }
 
       // FIX: not needed, because the condition variable will only signaled when
       // the user detail is ready
-      if (!user->public_key.is_valid())
+      if (!opponent_user->public_key.is_valid())
       {
         // wait until user detail received
         if (state_.expected_operation_state() != OperationState::GetUserDetails)
@@ -351,7 +351,7 @@ namespace ar
       state_.expect_operation_state(OperationState::SendFile);
 
       auto ts = get_current_time();
-      if (!client_.send_file(user->public_key, filepath, user->id))
+      if (!client_.send_file(opponent_user->public_key, filepath, opponent_user->id))
       {
         state_.active_overlay(OverlayState::FileNotExist);
         continue;
@@ -364,7 +364,8 @@ namespace ar
 
       {
         std::unique_lock lock{file_mutex_};
-        files_.emplace_back(format, size, this_user_.get(), std::move(data.file_fullpath),
+        // TODO: Change into receiver
+        files_.emplace_back(false, format, size, opponent_user, std::move(data.file_fullpath),
                             std::move(ts));
       }
     }
@@ -415,7 +416,7 @@ namespace ar
     notification_overlay(State::overlay_state_id(OverlayState::ClientDisconnected),
                          ICON_FA_CONNECTDEVELOP
                          " Application couldn't make a connection with server"sv,
-                         "Please fill all fields and try again"sv, [this] {
+                         "Press close to exit application"sv, [this] {
                            window_.exit();
                          });
 
@@ -427,7 +428,7 @@ namespace ar
     // Internal Error
     notification_overlay(State::overlay_state_id(OverlayState::InternalError),
                          ICON_FA_STOP " Some error happens"sv,
-                         "Please close and open the application again"sv);
+                         "Please restart the application again"sv);
 
     notification_overlay(State::overlay_state_id(OverlayState::SendFileFailed),
                          ICON_FA_STOP " failed to send error on server"sv,
@@ -1046,6 +1047,9 @@ namespace ar
 
   void Application::on_feedback_response(const FeedbackPayload& payload) noexcept
   {
+    Logger::info(fmt::format("Application got {} Feedback ({}): {}",
+                             magic_enum::enum_name(payload.id), payload.response,
+                             std::string_view{payload.message}));
     switch (payload.id)
     {
     case FeedbackId::Login: {
@@ -1087,14 +1091,6 @@ namespace ar
       break;
     }
     }
-
-    if constexpr (AR_DEBUG)
-    {
-      Logger::info(fmt::format("Feedback Repsonse: {}", payload.response,
-                               magic_enum::enum_name(payload.id)));
-      if (!payload.message.empty())
-        Logger::trace(fmt::format("Feedback Message: {}", payload.message));
-    }
   }
 
   void Application::on_file_receive(const Message::Header& header,
@@ -1128,8 +1124,8 @@ namespace ar
           return;
         }
 
-        files_.emplace_back(format, received_file.files.size_bytes(), &*it, dest_path.string(),
-                            get_current_time());
+        files_.emplace_back(true, format, received_file.files.size_bytes(), &*it,
+                            dest_path.string(), get_current_time());
       }
     }
   }
@@ -1256,6 +1252,8 @@ namespace ar
       return;
     }
 
+    state_.operation_state_complete();
+
     auto result = deserialize(payload.public_key);
     if (!result)
     {
@@ -1280,7 +1278,6 @@ namespace ar
       return;
     }
 
-    state_.operation_state_complete();
     state_.disable_loading_overlay();
   }
 } // namespace ar

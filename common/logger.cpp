@@ -46,7 +46,7 @@ namespace ar
       if (idx2 == std::string_view::npos)
         return "error"sv;
 
-      auto len = idx2;
+      auto len = idx2 - idx - 1;
       return func_.substr(start, len);
     }
   }
@@ -104,7 +104,8 @@ namespace ar
     if (s_thread_names.contains(id))
       thread = s_thread_names[id];
 
-    fmt::println("[{:^8}] {} |{:^8}| '{}' => {}", thread, std::chrono::system_clock::now(), type,
+    fmt::println("[{:^8}] {:%H:%M:%S} |{:^8}| '{}' => {}", thread, std::chrono::system_clock::now(),
+                 type,
                  get_function_name(sl.function_name()), val);
     #endif
   }

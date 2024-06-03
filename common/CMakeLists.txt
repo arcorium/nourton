@@ -48,6 +48,8 @@ target_link_libraries(nourton-common PUBLIC
   aes
 )
 
+target_compile_definitions(nourton-common PUBLIC "DEBUG=$<IF:$<CONFIG:Debug>,1,0>")
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # https://github.com/llvm/llvm-project/issues/62801
   target_compile_definitions(nourton-common PUBLIC -D__cpp_concepts=202002L -DASIO_HAS_CO_AWAIT=1)

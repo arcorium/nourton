@@ -108,7 +108,7 @@ namespace ar
                             ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(State::loading_overlay_id().data(), nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration
-                                   | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove))
+                               | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove))
     {
       loading_widget("Loading...", 72.f, ImVec4{0.537f, 0.341f, 0.882f, 1.f},
                      ImVec4{0.38f, 0.24f, 0.64f, 1.f}, 14, 4.0f);
@@ -206,7 +206,7 @@ namespace ar
 
     if (ImGui::BeginChild(filename.data(), {0.f, 72.f}, ImGuiChildFlags_Border))
     {
-      const bool is_me = property.sender->name == "me"sv;
+      const bool is_sent = !property.is_received;
 
       ImageProperties image{};
       switch (property.format)
@@ -239,14 +239,14 @@ namespace ar
       auto font = resource_manager.font("FiraCodeNerdFont-SemiBold.ttf", 14.f);
       ImGui::PushFont(font);
 
-      std::string_view sender = property.sender->name;
+      std::string_view sender = property.opponent->name;
       std::string_view time = property.timestamp;
       auto text_size = ImGui::CalcTextSize(sender.data());
       auto time_size = ImGui::CalcTextSize(time.data());
       auto& style = ImGui::GetStyle();
 
       // Close label
-      if (!is_me)
+      if (!is_sent)
       {
         constexpr static std::string_view close_text = "X"sv;
         static auto close_text_size = ImGui::CalcTextSize(close_text.data());
@@ -262,7 +262,7 @@ namespace ar
         ImGui::PopStyleVar();
       }
 
-      if (is_me)
+      if (is_sent)
         ImGui::PushStyleColor(ImGuiCol_Button, color_from_hex(0xd6894eff));
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_Button));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_Button));
@@ -278,7 +278,7 @@ namespace ar
       ImGui::SetCursorPosY(image_size.y - style.WindowPadding.y + 4.f);
       ImGui::Button(time.data());
 
-      ImGui::PopStyleColor(2 + (is_me ? 1 : 0));
+      ImGui::PopStyleColor(2 + (is_sent ? 1 : 0));
       ImGui::PopFont();
 
       // Invisible Button
@@ -288,7 +288,7 @@ namespace ar
                          ImGui::GetWindowHeight() - style.WindowPadding.y};
       if (ImGui::InvisibleButton(fmt::format("{}#btn", filename).data(), size))
       {
-        if (!is_me)
+        if (!is_sent)
           std::invoke(std::forward<CardFn>(card_fn));
       }
 
@@ -300,4 +300,4 @@ namespace ar
     ImGui::EndChild();
     ImGui::PopStyleVar();
   }
-}  // namespace ar
+} // namespace ar

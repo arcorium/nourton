@@ -4,6 +4,7 @@
 
 #include "client.h"
 
+#include <magic_enum.hpp>
 #include <fmt/format.h>
 
 #include <asio/co_spawn.hpp>
@@ -122,6 +123,14 @@ namespace ar
     return symm_encryptor_;
   }
 
+  void Client::send_message(Message&& payload) noexcept
+  {
+    const auto header = payload.as_header();
+    Logger::info(fmt::format("Client sent {} message to {}",
+                             magic_enum::enum_name(header->message_type), header->opponent_id));
+    connection_.write(std::forward<Message>(payload));
+  }
+
   asio::awaitable<void> Client::reader() noexcept
   {
     Logger::trace("Client start reading data from remote");
@@ -144,9 +153,10 @@ namespace ar
 
   void Client::message_handler(const Message& msg) noexcept
   {
-    Logger::trace("Client handle incoming message");
-
     auto header = msg.as_header();
+
+    Logger::info(fmt::format("Client got {} message from {}",
+                             magic_enum::enum_name(header->message_type), header->opponent_id));
 
     switch (header->message_type)
     {

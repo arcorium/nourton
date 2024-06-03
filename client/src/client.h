@@ -67,6 +67,8 @@ namespace ar
     template <payload T>
     std::expected<T, std::string_view> get_payload(const Message& msg) noexcept;
 
+    void send_message(Message&& payload) noexcept;
+
     asio::awaitable<void> reader() noexcept;
 
     void message_handler(const Message& msg) noexcept;
@@ -101,7 +103,7 @@ namespace ar
 
     auto msg = create_message<type, Message::EncryptionType::Asymmetric>(
         cipher_bytes, opponent_id, filler);
-    connection_.write(std::move(msg));
+    send_message(std::move(msg));
   }
 
   template <bool Encrypt, serializable T>
@@ -110,17 +112,18 @@ namespace ar
     constexpr auto type = get_payload_type<T>();
     auto body = payload.serialize();
 
-    Message msg;
     if constexpr (Encrypt)
     {
       auto [filler, cipher] = symm_encryptor_.encrypts(body);
-      msg = create_message<type, Message::EncryptionType::Symmetric>(cipher, opponent_id, filler);
+      auto msg = create_message<type, Message::EncryptionType::Symmetric>(
+          cipher, opponent_id, filler);
+      send_message(std::move(msg));
     }
     else
     {
-      msg = create_message<type>(body, opponent_id, 0);
+      auto msg = create_message<type>(body, opponent_id, 0);
+      send_message(std::move(msg));
     }
-    connection_.write(std::move(msg));
   }
 
   template <payload T>
@@ -152,4 +155,5 @@ namespace ar
     // handle when the payload is not encrypted
     return msg.body_as<T>();
   }
+
 } // namespace ar

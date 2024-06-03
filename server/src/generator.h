@@ -5,23 +5,22 @@
 
 namespace ar
 {
+  // Generate id based on incremental value
   template <std::integral T>
   class IdGenerator
   {
   public:
     IdGenerator()
-        : val_{0}
+      : val_{0}
     {
     }
 
     IdGenerator(T val)
-        : val_{val}
+      : val_{val}
     {
     }
 
-    T gen()
-
-        noexcept
+    T gen() noexcept
     {
       return val_.fetch_add(1);
     }
@@ -29,4 +28,4 @@ namespace ar
   private:
     std::atomic<T> val_;
   };
-}  // namespace ar
+} // namespace ar

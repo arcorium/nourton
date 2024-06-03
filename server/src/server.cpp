@@ -1,6 +1,9 @@
 #include "server.h"
 
 #include <fmt/format.h>
+#include <fmt/std.h>
+#include <fmt/ranges.h>
+
 #include <util/asio.h>
 
 #include <asio/bind_executor.hpp>
@@ -44,8 +47,9 @@ namespace ar
   void Server::on_message_in(Connection& conn, const Message& msg) noexcept
   {
     auto header = msg.as_header();
-    Logger::trace(fmt::format("new message from connection-{}: {}", conn.id(),
+    Logger::trace(fmt::format("Connection-{} got {} message", conn.id(),
                               me::enum_name(header->message_type)));
+
     switch (header->message_type)
     {
     case Message::Type::Login: {
@@ -140,6 +144,19 @@ namespace ar
     }
   }
 
+  void Server::send_message(Connection& conn, Message&& msg) noexcept
+  {
+    const auto header = msg.as_header();
+    if (conn.user())
+      Logger::info(fmt::format("Sending {} message to {}[{}]", me::enum_name(header->message_type),
+                               conn.user()->name, conn.id()));
+    else
+      Logger::info(fmt::format("Sending {} message to {}", me::enum_name(header->message_type),
+                               conn.id()));
+
+    conn.write(std::forward<Message>(msg));
+  }
+
   void Server::login_message_handler(Connection& conn, const Message& msg) noexcept
   {
     // All data encrypted using symmetric key
@@ -228,12 +245,12 @@ namespace ar
       return;
     }
 
+    Logger::info(fmt::format("Connection-{} registered successfully with username: {}",
+                             conn.id(), std::string_view{payload->username}));
+
     users_.emplace_back(std::make_unique<User>(user_id_generator_.gen(),
                                                std::move(payload->username),
                                                std::move(payload->password), std::vector<u8>{}));
-
-    Logger::info(fmt::format("Connection-{} registered successfully with username: {}",
-                             conn.id(), payload->username));
 
     send_feedback<true, FeedbackId::Register>(symm_encryptor, conn);
   }
@@ -397,11 +414,23 @@ namespace ar
     if (!expect_prologue<true, Message::EncryptionType::None, FeedbackId::SendFile>(conn, *header))
       return;
 
-    // check if user is online
+    // check if user opponent is online
     auto& symm_encryptor = conn.symmetric_encryptor();
     if (!user_connections_.contains(header->opponent_id))
     {
-      send_feedback<false, FeedbackId::SendFile>(symm_encryptor, conn, USER_NOT_FOUND);
+      Logger::warn(fmt::format(
+          "User-{} trying to send file into user with id {}, which doesn't exists",
+          conn.user()->name, header->opponent_id));
+      if constexpr (AR_DEBUG)
+      {
+        // Show registered and online users
+        std::vector<User::id_type> keys{};
+        for (const auto& k : user_connections_ | std::views::keys)
+          keys.emplace_back(k);
+
+        Logger::info(fmt::format("[DEBUG] Online Users: {}", keys));
+      }
+      send_feedback<false, FeedbackId::SendFile>(symm_encryptor, conn, USER_ID_NOT_FOUND);
       return;
     }
 
@@ -415,7 +444,8 @@ namespace ar
       });
 
       Logger::info(
-          fmt::format("user-{} sending files to user-{}", conn.user()->name, user->get()->name));
+          fmt::format("User-{}[{}] sending files to user-{}", conn.user()->name, conn.id(),
+                      user->get()->name));
     }
 
     // Send to all clients connected to specific user
@@ -437,7 +467,8 @@ namespace ar
       // copy message and change the opponent id into sender id
       auto msg_copy = msg;
       msg_copy.as_header()->opponent_id = conn.user()->id;
-      con->get()->write(std::move(msg_copy));
+      // con->get()->write(std::move(msg_copy));
+      send_message(*con->get(), std::move(msg_copy));
     }
 
     send_feedback<true, FeedbackId::SendFile>(symm_encryptor, conn);

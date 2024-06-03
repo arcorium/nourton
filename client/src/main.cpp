@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 
   if constexpr (!AR_DEBUG)
   {
-    ar::Logger::set_minimum_level(ar::Logger::Level::Warn);
+    ar::Logger::set_minimum_level(ar::Logger::Level::Info);
   }
 
   argparse::ArgumentParser program{std::string{PROGRAM_CLIENT_NAME}, std::string{PROGRAM_VERSION}};

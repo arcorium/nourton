@@ -89,6 +89,7 @@ namespace ar
 
     asio::steady_timer write_timer_;
     std::queue<Message> write_message_queue_; // WARN: need mutex?
+    std::mutex write_message_mtx_;
     asio::ip::tcp::socket socket_;
 
     symm_type symmetric_encryptor_; // Used for communicating between client and server

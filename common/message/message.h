@@ -70,7 +70,6 @@ namespace ar
 
     constexpr static u8 header_size = sizeof(Header);
 
-    // TODO: Remove default constructor to force header initialization
     Message()
       : header{}, body{}
     {

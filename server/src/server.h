@@ -36,28 +36,28 @@ namespace ar
     asio::awaitable<void> connection_acceptor() noexcept;
 
     template <bool Expect, FeedbackId Id>
-    bool expect_auth(Connection& conn AR_SOURCE_LOCATION_PARAM_2) noexcept;
+    bool expect_auth(Connection& conn) noexcept;
 
     // It will return bad feedback response which is encrypted
     template <bool Expect, FeedbackId Id>
     bool expect_auth(symm_type& symm_encryptor,
-                     Connection& conn AR_SOURCE_LOCATION_PARAM_2) noexcept;
+                     Connection& conn) noexcept;
 
     template <Message::EncryptionType Expect, FeedbackId Id>
     bool expect_encryption(const Message::Header& header,
-                           Connection& conn AR_SOURCE_LOCATION_PARAM_2) noexcept;
+                           Connection& conn) noexcept;
 
     template <Message::EncryptionType Expect, FeedbackId Id>
     bool expect_encryption(symm_type& symm_encryptor, const Message::Header& header,
-                           Connection& conn AR_SOURCE_LOCATION_PARAM_2) noexcept;
+                           Connection& conn) noexcept;
 
     template <bool ExpectAuth, Message::EncryptionType ExpectEnc, FeedbackId Id>
     bool expect_prologue(Connection& conn,
-                         const Message::Header& header AR_SOURCE_LOCATION_PARAM_2) noexcept;
+                         const Message::Header& header) noexcept;
 
     template <bool ExpectAuth, Message::EncryptionType ExpectEnc, FeedbackId Id>
     bool expect_prologue(symm_type& symm_encryptor, Connection& conn,
-                         const Message::Header& header AR_SOURCE_LOCATION_PARAM_2) noexcept;
+                         const Message::Header& header) noexcept;
 
     // Not encrypted
     template <bool Resp, FeedbackId Id>
@@ -81,6 +81,8 @@ namespace ar
     template <payload T>
     void send_message(symm_type& symm_encryptor, Connection& conn, const T& payload) noexcept;
 
+    void send_message(Connection& conn, Message&& msg) noexcept;
+
     // When Encrypt is true, the message will be encrypted by each cliet symmetric key
     template <bool Encrypt, payload T>
     void broadcast_message(const T& payload, User::id_type except_id) noexcept;
@@ -101,7 +103,7 @@ namespace ar
     asio::ip::tcp::acceptor acceptor_;
 
     std::vector<std::shared_ptr<Connection>> connections_; // client database
-    std::map<u16, std::vector<u16>> user_connections_;
+    std::unordered_map<u16, std::vector<u16>> user_connections_;
     std::vector<std::unique_ptr<User>> users_; // user database
     IdGenerator<u16> user_id_generator_;
 
@@ -109,7 +111,7 @@ namespace ar
   };
 
   template <bool Expect, FeedbackId Id>
-  bool Server::expect_auth(Connection& conn AR_SOURCE_LOCATION_PARAM_2_DECL)
+  bool Server::expect_auth(Connection& conn)
     noexcept
   {
     if (conn.is_authenticated() == Expect)
@@ -118,14 +120,14 @@ namespace ar
     if constexpr (Expect)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} is unauthenticated while trying to do some actions",
-                       conn.id()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} is unauthenticated while trying to do some actions",
+          conn.id()));
     }
     else
     {
       Logger::warn(fmt::format(
-                       "Connection-{} already authenticated, which is prohibited",
-                       conn.id()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} already authenticated, which is prohibited",
+          conn.id()));
     }
     send_feedback<false, Id>(conn, Expect ? UNAUTHENTICATED_MESSAGE : AUTHENTICATED_MESSAGE);
     return false;
@@ -133,7 +135,7 @@ namespace ar
 
   template <bool Expect, FeedbackId Id>
   bool Server::expect_auth(symm_type& symm_encryptor,
-                           Connection& conn AR_SOURCE_LOCATION_PARAM_2_DECL)
+                           Connection& conn)
     noexcept
   {
     if (conn.is_authenticated() == Expect)
@@ -156,7 +158,7 @@ namespace ar
 
   template <Message::EncryptionType Expect, FeedbackId Id>
   bool Server::expect_encryption(const Message::Header& header,
-                                 Connection& conn AR_SOURCE_LOCATION_PARAM_2_DECL) noexcept
+                                 Connection& conn) noexcept
   {
     if (header.encryption == Expect)
       return true;
@@ -164,24 +166,24 @@ namespace ar
     if constexpr (Expect == Message::EncryptionType::None)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} packet instead of unencrypted", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} packet instead of unencrypted", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(conn, MESSAGE_SHOULD_NOT_ENCRYPTED);
     }
     else if constexpr (Expect == Message::EncryptionType::Asymmetric)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} encrypted packet instead of asymmetric", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} encrypted packet instead of asymmetric", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(conn, MESSAGE_ENCRYPTION_IS_NOT_ASYMMETRIC);
     }
     else if constexpr (Expect == Message::EncryptionType::Symmetric)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} encrypted packet instead of symmetric", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} encrypted packet instead of symmetric", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(conn, MESSAGE_ENCRYPTION_IS_NOT_SYMMETRIC);
     }
@@ -191,7 +193,7 @@ namespace ar
 
   template <Message::EncryptionType Expect, FeedbackId Id>
   bool Server::expect_encryption(symm_type& symm_encryptor, const Message::Header& header,
-                                 Connection& conn AR_SOURCE_LOCATION_PARAM_2_DECL) noexcept
+                                 Connection& conn) noexcept
   {
     if (header.encryption == Expect)
       return true;
@@ -199,24 +201,24 @@ namespace ar
     if constexpr (Expect == Message::EncryptionType::None)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} packet instead of unencrypted", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} packet instead of unencrypted", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(symm_encryptor, conn, MESSAGE_SHOULD_NOT_ENCRYPTED);
     }
     else if constexpr (Expect == Message::EncryptionType::Asymmetric)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} encrypted packet instead of asymmetric", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} encrypted packet instead of asymmetric", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(symm_encryptor, conn, MESSAGE_ENCRYPTION_IS_NOT_ASYMMETRIC);
     }
     else if constexpr (Expect == Message::EncryptionType::Symmetric)
     {
       Logger::warn(fmt::format(
-                       "Connection-{} sent {} encrypted packet instead of symmetric", conn.id(),
-                       magic_enum::enum_name<Expect>()) AR_SOURCE_LOCATION_VAR_2);
+          "Connection-{} sent {} encrypted packet instead of symmetric", conn.id(),
+          magic_enum::enum_name<Expect>()));
 
       send_feedback<false, Id>(symm_encryptor, conn, MESSAGE_ENCRYPTION_IS_NOT_SYMMETRIC);
     }
@@ -226,30 +228,20 @@ namespace ar
 
   template <bool ExpectAuth, Message::EncryptionType ExpectEnc, FeedbackId Id>
   bool Server::expect_prologue(Connection& conn,
-                               const Message::Header& header AR_SOURCE_LOCATION_PARAM_2_DECL)
+                               const Message::Header& header)
     noexcept
   {
-    return expect_auth<ExpectAuth, Id>(conn
-                                       AR_SOURCE_LOCATION_VAR_2
-               )
-           && expect_encryption<
-             ExpectEnc, Id>(header, conn
-                            AR_SOURCE_LOCATION_VAR_2
-               );
+    return expect_auth<ExpectAuth, Id>(conn) &&
+           expect_encryption<ExpectEnc, Id>(header, conn);
   }
 
   template <bool ExpectAuth, Message::EncryptionType ExpectEnc, FeedbackId Id>
   bool Server::expect_prologue(symm_type& symm_encryptor, Connection& conn,
-                               const Message::Header& header AR_SOURCE_LOCATION_PARAM_2_DECL)
+                               const Message::Header& header)
     noexcept
   {
-    return expect_auth<ExpectAuth, Id>(symm_encryptor, conn
-                                       AR_SOURCE_LOCATION_VAR_2
-               )
-           &&
-           expect_encryption<ExpectEnc, Id>(symm_encryptor, header, conn
-                                            AR_SOURCE_LOCATION_VAR_2
-               );
+    return expect_auth<ExpectAuth, Id>(symm_encryptor, conn) &&
+           expect_encryption<ExpectEnc, Id>(symm_encryptor, header, conn);
   }
 
   template <bool Resp, FeedbackId Id>
@@ -262,7 +254,7 @@ namespace ar
     };
     auto serialized = resp_payload.serialize();
     auto msg = create_message<Message::Type::Feedback>(serialized, User::SERVER_ID, 0);
-    conn.write(std::move(msg));
+    send_message(conn, std::move(msg));
   }
 
   template <bool Resp, FeedbackId Id>
@@ -281,7 +273,7 @@ namespace ar
 
     auto msg = create_message<Message::Type::Feedback, Message::EncryptionType::Symmetric>(
         cipher, User::SERVER_ID, filler);
-    conn.write(std::move(msg));
+    send_message(conn, std::move(msg));
   }
 
   template <payload T>
@@ -314,7 +306,8 @@ namespace ar
 
     auto serialized = payload.serialize();
     auto resp_msg = create_message<payload_type>(serialized, User::SERVER_ID, 0);
-    conn.write(std::move(resp_msg));
+
+    send_message(conn, std::move(resp_msg));
   }
 
   template <payload T>
@@ -326,15 +319,20 @@ namespace ar
     auto [padding, cipher] = symm_encryptor.encrypts(serialized);
     auto resp_msg = create_message<payload_type, Message::EncryptionType::Symmetric>(
         cipher, User::SERVER_ID, padding);
-    conn.write(std::move(resp_msg));
+    send_message(conn, std::move(resp_msg));
   }
 
   template <bool Encrypt, payload T>
   void Server::broadcast_message(const T& payload, User::id_type except) noexcept
   {
-    Logger::trace(fmt::format("Broadcasting encrypted message except for client {}", except));
-
     constexpr auto payload_type = get_payload_type<T>();
+    if constexpr (Encrypt)
+      Logger::trace(fmt::format("Broadcasting {} message except for client {}",
+                                magic_enum::enum_name<payload_type>(), except));
+    else
+      Logger::trace(fmt::format("Broadcasting {} encrypted message except for client {}",
+                                magic_enum::enum_name<payload_type>(), except));
+
     auto serialized = payload.serialize();
     // encrypt
 
@@ -350,12 +348,12 @@ namespace ar
         auto [padding, cipher] = symm_encryptor.encrypts(serialized);
         auto msg = create_message<payload_type, Message::EncryptionType::Symmetric>(
             cipher, User::SERVER_ID, padding);
-        conn->write(std::move(msg));
+        send_message(*conn, std::move(msg));
       }
       else
       {
         auto msg = create_message<payload_type>(serialized, User::SERVER_ID, 0);
-        conn->write(std::move(msg));
+        send_message(*conn, std::move(msg));
       }
     }
   }

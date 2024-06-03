@@ -38,6 +38,9 @@ namespace ar
   static constexpr std::string_view USER_NOT_FOUND{
       "you are not registered"
   };
+  static constexpr std::string_view USER_ID_NOT_FOUND{
+    "User with those id is not found"
+  };
   static constexpr std::string_view USER_ALREADY_EXIST{
       "user already exist"
   };

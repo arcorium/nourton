@@ -115,16 +115,23 @@ namespace ar
       return;
     }
 
-    Logger::trace(fmt::format("Sending message to connection-{} ...", id_));
-    write_message_queue_.push(std::forward<Message>(msg));
-
-    asio::error_code ec;
-    write_timer_.cancel(ec);
-
-    if constexpr (AR_DEBUG)
+    Logger::trace(fmt::format("Push message to connection-{} writer", id_));
     {
-      if (ec)
-        Logger::warn(fmt::format("failed to cancel timer: {}", ec.message()));
+      std::unique_lock l{write_message_mtx_};
+      write_message_queue_.push(std::forward<Message>(msg));
+
+      // cancel the timer when this is the only message
+      if (write_message_queue_.size() - 1 == 0)
+      {
+        asio::error_code ec;
+        write_timer_.cancel(ec);
+
+        if constexpr (AR_DEBUG)
+        {
+          if (ec)
+            Logger::warn(fmt::format("failed to cancel timer: {}", ec.message()));
+        }
+      }
     }
   }
 
@@ -206,7 +213,12 @@ namespace ar
     Logger::trace(fmt::format("Connection-{} starting writer handler", id_));
     while (is_open())
     {
-      if (write_message_queue_.empty())
+      bool is_empty;
+      {
+        std::unique_lock l{write_message_mtx_};
+        is_empty = write_message_queue_.empty();
+      }
+      if (is_empty)
       {
         auto [ec] = co_await write_timer_.async_wait(ar::await_with_error());
         // NOTE: when the error is not cancel
@@ -215,33 +227,39 @@ namespace ar
           Logger::warn(fmt::format("Error while waiting timer: {}", ec.message()));
           break;
         }
+        Logger::trace(fmt::format("Connection-{} writer woken up", id_));
         continue;
       }
 
-      auto msg = std::move(write_message_queue_.front());
-
-      // send 2 bufer in one go
-      std::vector<asio::const_buffer> buffers{};
-      buffers.emplace_back(asio::buffer(msg.header));
-      buffers.emplace_back(asio::buffer(msg.body));
-      auto expected_bytes = msg.size();
-      auto [ec, n] = co_await asio::async_write(socket_, buffers, ar::await_with_error());
-      if (ec)
       {
-        if (is_connection_lost(ec))
-          break;
-        Logger::warn(fmt::format("Connection-{} error on sending message: {}", id_, ec.message()));
-        continue;
-      }
-      if (n != expected_bytes)
-      {
-        Logger::warn(
-            fmt::format("Connection-{} is sending message with different size: {}", id_, n));
-        continue;
-      }
+        Logger::trace(fmt::format("Connection-{} writer sending message...", id_));
+        std::unique_lock l{write_message_mtx_};
+        auto msg = std::move(write_message_queue_.front());
 
-      Logger::info(fmt::format("success sent 1 message to connection-{}!", id_));
-      write_message_queue_.pop();
+        // send 2 bufer in one go
+        std::vector<asio::const_buffer> buffers{};
+        buffers.emplace_back(asio::buffer(msg.header));
+        buffers.emplace_back(asio::buffer(msg.body));
+        auto expected_bytes = msg.size();
+        auto [ec, n] = co_await asio::async_write(socket_, buffers, ar::await_with_error());
+        if (ec)
+        {
+          if (is_connection_lost(ec))
+            break;
+          Logger::warn(fmt::format("Connection-{} error on sending message: {}", id_,
+                                   ec.message()));
+          continue;
+        }
+        if (n != expected_bytes)
+        {
+          Logger::warn(
+              fmt::format("Connection-{} is sending message with different size: {}", id_, n));
+          continue;
+        }
+
+        Logger::info(fmt::format("success sent 1 message to connection-{}!", id_));
+        write_message_queue_.pop();
+      }
     }
     Logger::trace(fmt::format("Connection-{} no longer sending message!", id_));
   }
