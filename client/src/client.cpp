@@ -82,6 +82,38 @@ namespace ar
     return connection_.is_open();
   }
 
+  // bool Client::send_file(const asymm_enc::_public_key& pk, std::string_view filepath,
+  //                        User::id_type opponent_id) noexcept
+  // {
+  //   std::string_view filename = get_filename_with_format(filepath);
+  //
+  //   // Read file
+  //   auto result = read_file_as_bytes(filepath);
+  //   if (!result.has_value())
+  //   {
+  //     Logger::error(result.error());
+  //     return false;
+  //   }
+  //
+  //   auto enc_result = encrypt(pk, result.value());
+  //   auto enc_key_bytes = ar::as_byte_span<asymm_type::block_enc_type>(enc_result.cipher_key);
+  //
+  //   // Send payload
+  //   SendFilePayload payload{
+  //       .file_filler = enc_result.data_padding,
+  //       .key_filler = enc_result.key_padding,
+  //       .file_size = result->size(),
+  //       .filename = std::string{filename},
+  //       .timestamp = get_current_time(),
+  //       .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
+  //       .files = std::move(enc_result.cipher_data)
+  //   };
+  //
+  //   write<false>(std::move(payload), opponent_id);
+  //   return true;
+  // }
+
+
   bool Client::send_file(const asymm_enc::_public_key& pk, std::string_view filepath,
                          User::id_type opponent_id) noexcept
   {
@@ -95,18 +127,20 @@ namespace ar
       return false;
     }
 
-    auto enc_result = encrypt(pk, result.value());
-    auto enc_key_bytes = ar::as_byte_span<asymm_type::block_enc_type>(enc_result.cipher_key);
-
-    // Send payload
-    SendFilePayload payload{
-        .file_filler = enc_result.data_padding,
-        .key_filler = enc_result.key_padding,
+    SendFilePayload2::Data data{
         .file_size = result->size(),
         .filename = std::string{filename},
-        .timestamp = get_current_time(),
-        .symmetric_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()},
-        .files = std::move(enc_result.cipher_data)
+        .files = std::move(result.value())
+    };
+
+    auto symm_serialized = data.serialize();
+    auto enc_result = encrypt(pk, symm_serialized);
+
+    SendFilePayload2 payload{
+        .key_padding = enc_result.key_padding,
+        .data_padding = enc_result.data_padding,
+        .key = std::move(enc_result.cipher_key),
+        .data = std::move(enc_result.cipher_data)
     };
 
     write<false>(std::move(payload), opponent_id);
@@ -161,28 +195,37 @@ namespace ar
     switch (header->message_type)
     {
     case Message::Type::SendFile: {
-      auto result = get_payload<SendFilePayload>(msg);
+      // auto result = get_payload<SendFilePayload>(msg);
+      auto result = get_payload<SendFilePayload2>(msg);
       if (!result)
       {
         Logger::error(fmt::format("failed to deserialize send file payload: {}", result.error()));
         break;
       }
 
-      // Decrypt data
-      auto file_result = decrypt(asymm_encryptor_, result->key_filler, result->symmetric_key,
-                                 result->file_filler,
-                                 result->files);
+      // Decrypt and Deserialize data
+      auto dec_result = decrypt(asymm_encryptor_, result->key_padding, result->key,
+                                result->data_padding, result->data);
 
-      if (!file_result)
+      if (!dec_result)
       {
         Logger::error(fmt::format("failed to decrypt on received files payload: {}",
-                                  file_result.error()));
+                                  dec_result.error()));
         return;
       }
 
+      auto data = parse_body<SendFilePayload2::Data>(dec_result.value());
+      if (!data)
+      {
+        Logger::error(fmt::format("failed to serialize payload: {}",
+                                  dec_result.error()));
+        return;
+      }
+
+      ReceivedFile recv_file{.filename = data->filename, .files = data->files};
       if (event_handler_)
         event_handler_->on_file_receive(
-            *header, ReceivedFile{.filename = result->filename, .files = file_result.value()});
+            *header, recv_file);
       break;
     }
     case Message::Type::UserLogin: {

@@ -17,7 +17,8 @@ namespace ar
     u8 data_padding;
     u8 key_padding;
     std::vector<u8> cipher_data;
-    std::vector<asymm_type::block_enc_type> cipher_key;
+    // std::vector<asymm_type::block_enc_type> cipher_key;
+    std::vector<u8> cipher_key;
   };
 
   [[nodiscard]] static EncryptHybridResult encrypt(const DMRSA::_public_key& public_key,
@@ -31,12 +32,13 @@ namespace ar
     // Encrypt symmetric key
     DMRSA rsa{public_key};
     auto [key_padding, enc_key] = rsa.encrypts(symmetric_key);
+    auto enc_key_bytes = ar::as_byte_span<asymm_type::block_enc_type>(enc_key);
 
     return EncryptHybridResult{
         .data_padding = static_cast<u8>(data_padding),
         .key_padding = static_cast<u8>(key_padding),
         .cipher_data = std::move(enc_data),
-        .cipher_key = std::move(enc_key)
+        .cipher_key = std::vector<u8>{enc_key_bytes.begin(), enc_key_bytes.end()}
     };
   }
 
@@ -46,7 +48,7 @@ namespace ar
   {
     // Decrypt key
     auto decipher_key_result = asymm.decrypts(cipher_key);
-    if (!decipher_key_result.has_value())
+    if (!decipher_key_result)
       return std::unexpected(decipher_key_result.error());
 
     auto decipher_key_bytes = as_byte_span<DMRSA::block_type>(
@@ -59,7 +61,7 @@ namespace ar
     Camellia::key_type key{decipher_key_bytes};
     Camellia symmetric_encryptor{key};
     auto decipher_file_result = symmetric_encryptor.decrypts(cipher_data, data_padding);
-    if (!decipher_file_result.has_value())
+    if (!decipher_file_result)
       return std::unexpected(decipher_file_result.error());
 
     return ar::make_expected<std::vector<u8>, std::string_view>(

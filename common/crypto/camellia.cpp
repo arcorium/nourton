@@ -188,6 +188,11 @@ namespace ar
     return key_;
   }
 
+  std::span<u8, KEY_BYTE> Camellia::key() noexcept
+  {
+    return key_;
+  }
+
   u64 Camellia::F(u64 in, u64 ke) const noexcept
   {
     const u64 x = in ^ ke;

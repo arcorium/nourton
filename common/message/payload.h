@@ -139,6 +139,36 @@ namespace ar
     }
   };
 
+  struct SendFilePayload2
+  {
+    // Not encrypted
+    u8 key_padding;
+    u8 data_padding;
+    std::vector<u8> key;
+    std::vector<u8> data;
+
+    struct Data
+    {
+      u64 file_size;
+      std::string filename;
+      std::vector<u8> files;
+
+      [[nodiscard]] std::vector<u8> serialize() const noexcept
+      {
+        std::vector<u8> temp;
+        alpaca::serialize(*this, temp);
+        return temp;
+      }
+    };
+
+    [[nodiscard]] std::vector<u8> serialize() const noexcept
+    {
+      std::vector<u8> temp;
+      alpaca::serialize(*this, temp);
+      return temp;
+    }
+  };
+
   struct SendFilePayload
   {
     u8 file_filler;
@@ -245,7 +275,11 @@ namespace ar
     {
       return Message::Type::GetServerDetail;
     }
-    if constexpr (std::same_as<T, SendFilePayload>)
+    // if constexpr (std::same_as<T, SendFilePayload>)
+    // {
+    //   return Message::Type::SendFile;
+    // }
+    if constexpr (std::same_as<T, SendFilePayload2>)
     {
       return Message::Type::SendFile;
     }
@@ -262,6 +296,7 @@ namespace ar
       return Message::Type::Feedback;
     }
 
+    Logger::error("payload type unknown");
     return static_cast<Message::Type>(std::numeric_limits<std::underlying_type_t<
       Message::Type>>::max());
   }

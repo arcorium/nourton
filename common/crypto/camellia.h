@@ -173,6 +173,7 @@ namespace ar
         std::span<const u8> bytes, usize garbage = 0) const noexcept;
 
     [[nodiscard]] key_type key() const noexcept;
+    [[nodiscard]] std::span<u8, KEY_BYTE> key() noexcept;
 
   private:
     void schedule_key(key_type key) noexcept;
